@@ -284,11 +284,17 @@ mkbinaryexpr(struct location *loc, enum tokenkind op, struct expr *l, struct exp
 		} else {
 			if (!typecompatible(l->type->base, r->type->base))
 				error(&tok.loc, "pointer operands to '-' are to incompatible types");
+			t = l->type->base;
+			e = l;
+			l = mkexpr(EXPRCAST, &typelong);
+			l->base = e;
+			e = r;
+			r = mkexpr(EXPRCAST, &typelong);
+			r->base = e;
+			l = mkbinaryexpr(loc, TSUB, l, r);
+			r = mkconstexpr(&typelong, t->size);
 			op = TDIV;
 			t = &typelong;
-			e = mkbinaryexpr(loc, TSUB, exprconvert(l, &typelong), exprconvert(r, &typelong));
-			r = mkconstexpr(&typelong, l->type->base->size);
-			l = e;
 		}
 		break;
 	case TMOD:
@@ -782,13 +788,17 @@ postfixexpr(struct scope *s, struct expr *r)
 			if (tok.kind != TIDENT)
 				error(&tok.loc, "expected identifier after '%s' operator", tokstr[op]);
 			lvalue = op == TARROW || r->base->lvalue;
-			r = exprconvert(r, mkpointertype(&typechar, QUALNONE));
+			tmp = r;
+			r = mkexpr(EXPRCAST, mkpointertype(&typechar, QUALNONE));
+			r->base = tmp;
 			offset = 0;
 			m = typemember(t, tok.lit, &offset);
 			if (!m)
 				error(&tok.loc, "struct/union has no member named '%s'", tok.lit);
 			r = mkbinaryexpr(&tok.loc, TADD, r, mkconstexpr(&typeulong, offset));
-			r = exprconvert(r, mkpointertype(m->type, tq | m->qual));
+			tmp = r;
+			r = mkexpr(EXPRCAST, mkpointertype(m->type, tq | m->qual));
+			r->base = tmp;
 			r = mkunaryexpr(TMUL, r);
 			r->lvalue = lvalue;
 			if (m->bits.before || m->bits.after) {
@@ -1155,6 +1165,8 @@ exprconvert(struct expr *e, struct type *t)
 
 	if (typecompatible(e->type, t))
 		return e;
+	if (!typeconvertible(e->type, t))
+		error(&tok.loc, "illegal implicit conversion");
 	cast = mkexpr(EXPRCAST, t);
 	cast->base = e;
 

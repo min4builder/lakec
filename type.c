@@ -167,10 +167,64 @@ typecompatible(struct type *t1, struct type *t2)
 }
 
 bool
+typeconvertible(struct type *t1, struct type *t2)
+{
+	if (t1->prop & PROPSCALAR && t2->kind == TYPEBOOL)
+		return true;
+	if (t1->prop & (PROPINT | PROPFLOAT) && t2->prop & (PROPINT | PROPFLOAT))
+		return true;
+	if (t1->kind == TYPEPOINTER && t2->kind == TYPEPOINTER) {
+		if (t1->base->kind == TYPEVOID || t2->base->kind == TYPEVOID)
+			return true;
+		if ((t1->qual & t2->qual) == t1->qual && typesame(t1->base, t2->base))
+			return true;
+	}
+	if (t1->prop & PROPINT && t2->kind == TYPEPOINTER)
+		return true;
+	if (t1->kind == TYPEARRAY && t2->kind == TYPEPOINTER && typesame(t1->base, t2->base))
+		return true;
+	if (t2->kind == TYPEVOID)
+		return true;
+	return false;
+}
+
+bool
 typesame(struct type *t1, struct type *t2)
 {
-	// XXX: implement
-	return typecompatible(t1, t2);
+	struct param *p1, *p2;
+
+	if (t1 == t2)
+		return true;
+	if (t1->kind != t2->kind || t1->size != t2->size)
+		return false;
+	if (t1->prop & PROPINT)
+		return t1->basic.issigned == t2->basic.issigned;
+	if (t1->qual != t2->qual)
+		return false;
+
+	switch (t1->kind) {
+	case TYPEPOINTER:
+		return typesame(t1->base, t2->base);
+	case TYPEARRAY:
+		return t1->array.length == t2->array.length
+			&& typesame(t1->base, t2->base);
+	case TYPEFUNC:
+		if (t1->func.isprototype != t2->func.isprototype ||
+		    t1->func.isvararg != t2->func.isvararg ||
+		    t1->func.isnoreturn != t2->func.isnoreturn ||
+		    t1->func.paraminfo != t2->func.paraminfo)
+			return false;
+		if (!t1->func.paraminfo)
+			return typesame(t1->base, t2->base);
+		for (p1 = t1->func.params, p2 = t2->func.params; p1 && p2; p1 = p1->next, p2 = p2->next) {
+			if (p1->qual != p2->qual || !typesame(p1->type, p2->type))
+				return false;
+		}
+		if (p1 || p2)
+			return false;
+		return typesame(t1->base, t2->base);
+	}
+	return false;
 }
 
 struct type *

@@ -408,6 +408,7 @@ struct type *mkpointertype(struct type *, enum typequal);
 struct type *mkarraytype(struct type *, enum typequal, uint64_t);
 
 _Bool typecompatible(struct type *, struct type *);
+_Bool typeconvertible(struct type *, struct type *);
 _Bool typesame(struct type *, struct type *);
 struct type *typecomposite(struct type *, struct type *);
 struct type *typeunqual(struct type *, enum typequal *);
