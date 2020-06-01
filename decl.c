@@ -427,8 +427,6 @@ done:
 	default:
 		error(&tok.loc, "invalid combination of type specifiers");
 	}
-	if (!t && (tq || sc && *sc || fs && *fs))
-		error(&tok.loc, "declaration has no type specifier");
 	if (t && tq && t->kind == TYPEARRAY) {
 		t = mkarraytype(t->base, t->qual | tq, t->array.length);
 		tq = QUALNONE;
@@ -583,6 +581,11 @@ declarator(struct scope *s, struct qualtype base, char **name, bool allowabstrac
 	struct type *t;
 	enum typequal tq;
 	struct list result = {&result, &result}, *l, *prev;
+
+	if (!base.type) {
+		*name = expect(TIDENT, "in type-inferred declaration");
+		return base;
+	}
 
 	declaratortypes(s, &result, name, allowabstract);
 	for (l = result.prev; l != &result; l = prev) {
@@ -891,6 +894,7 @@ decl(struct scope *s, struct func *f)
 	enum storageclass sc;
 	enum funcspec fs;
 	struct init *init;
+	struct expr *expr;
 	struct param *p;
 	char *name, *asmname;
 	int allowfunc = !f;
@@ -901,7 +905,7 @@ decl(struct scope *s, struct func *f)
 	if (staticassert(s))
 		return true;
 	base = declspecs(s, &sc, &fs, &align);
-	if (!base.type)
+	if (!(base.type || base.qual || sc))
 		return false;
 	if (f) {
 		if (sc == SCTHREADLOCAL)
@@ -923,6 +927,8 @@ decl(struct scope *s, struct func *f)
 		qt = declarator(s, base, &name, false);
 		t = qt.type;
 		tq = qt.qual;
+		if (!t && sc & SCTYPEDEF)
+			error(&tok.loc, "typedef '%s' with no type", name);
 		if (consume(T__ASM__)) {
 			expect(TLPAREN, "after __asm__");
 			asmname = expect(TSTRINGLIT, "for assembler name");
@@ -931,7 +937,7 @@ decl(struct scope *s, struct func *f)
 		} else {
 			asmname = NULL;
 		}
-		kind = sc & SCTYPEDEF ? DECLTYPE : t->kind == TYPEFUNC ? DECLFUNC : DECLOBJECT;
+		kind = sc & SCTYPEDEF ? DECLTYPE : t && t->kind == TYPEFUNC ? DECLFUNC : DECLOBJECT;
 		prior = scopegetdecl(s, name, false);
 		if (prior && prior->kind != kind)
 			error(&tok.loc, "'%s' redeclared with different kind", name);
@@ -947,15 +953,23 @@ decl(struct scope *s, struct func *f)
 				error(&tok.loc, "typedef '%s' redefined with different type", name);
 			break;
 		case DECLOBJECT:
+			expr = NULL;
+			if (!t) {
+				expect(TASSIGN, "in type-inferred declaration");
+				expr = assignexpr(s);
+				t = expr->type;
+				init = mkinit(0, t->size, (struct bitfield){0}, expr);
+			}
 			d = declcommon(s, kind, name, asmname, t, tq, sc, prior);
 			if (d->align < align)
 				d->align = align;
-			if (consume(TASSIGN)) {
+			if (expr || consume(TASSIGN)) {
 				if (f && d->linkage != LINKNONE)
 					error(&tok.loc, "object '%s' with block scope and %s linkage cannot have initializer", name, d->linkage == LINKEXTERN ? "external" : "internal");
 				if (d->defined)
 					error(&tok.loc, "object '%s' redefined", name);
-				init = parseinit(s, d->type);
+				if (!expr)
+					init = parseinit(s, d->type);
 			} else {
 				init = NULL;
 			}

@@ -1,0 +1,55 @@
+export
+function $f() {
+@start.1
+	%.1 =l alloc4 12
+	%.5 =l alloc4 12
+	%.16 =l alloc4 12
+	%.27 =l alloc4 12
+@body.2
+	%.2 =l add %.1, 0
+	storew 0, %.2
+	%.3 =l add %.1, 4
+	storew 0, %.3
+	%.4 =l add %.1, 8
+	storew 0, %.4
+	%.6 =l add %.5, 0
+	%.7 =l loaduw %.1
+	storew %.7, %.6
+	%.8 =l add %.1, 4
+	%.9 =l add %.6, 4
+	%.10 =l loaduw %.8
+	storew %.10, %.9
+	%.11 =l add %.8, 4
+	%.12 =l add %.9, 4
+	%.13 =l loaduw %.11
+	storew %.13, %.12
+	%.14 =l add %.11, 4
+	%.15 =l add %.12, 4
+	%.17 =l add %.16, 0
+	%.18 =l loaduw %.5
+	storew %.18, %.17
+	%.19 =l add %.5, 4
+	%.20 =l add %.17, 4
+	%.21 =l loaduw %.19
+	storew %.21, %.20
+	%.22 =l add %.19, 4
+	%.23 =l add %.20, 4
+	%.24 =l loaduw %.22
+	storew %.24, %.23
+	%.25 =l add %.22, 4
+	%.26 =l add %.23, 4
+	%.28 =l add %.27, 0
+	%.29 =l loaduw %.16
+	storew %.29, %.28
+	%.30 =l add %.16, 4
+	%.31 =l add %.28, 4
+	%.32 =l loaduw %.30
+	storew %.32, %.31
+	%.33 =l add %.30, 4
+	%.34 =l add %.31, 4
+	%.35 =l loaduw %.33
+	storew %.35, %.34
+	%.36 =l add %.33, 4
+	%.37 =l add %.34, 4
+	ret
+}

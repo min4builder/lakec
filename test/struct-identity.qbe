@@ -1,0 +1,28 @@
+export
+function $f() {
+@start.1
+	%.1 =l alloc8 8
+	%.3 =l alloc4 12
+	%.7 =l alloc8 8
+	%.10 =l alloc8 8
+	%.13 =l alloc8 8
+@body.2
+	%.2 =l add %.1, 0
+	%.4 =l add %.3, 0
+	storew 0, %.4
+	%.5 =l add %.3, 4
+	storew 0, %.5
+	%.6 =l add %.3, 8
+	storew 0, %.6
+	storel %.3, %.2
+	%.8 =l add %.7, 0
+	%.9 =l loadl %.1
+	storel %.9, %.8
+	%.11 =l add %.10, 0
+	%.12 =l loadl %.7
+	storel %.12, %.11
+	%.14 =l add %.13, 0
+	%.15 =l loadl %.10
+	storel %.15, %.14
+	ret
+}

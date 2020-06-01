@@ -214,7 +214,7 @@ parseinit(struct scope *s, struct type *t)
 	p.sub->iscur = false;
 	p.init = NULL;
 	p.last = &p.init;
-	if (t->incomplete && !(t->kind == TYPEARRAY && t->array.length == 0))
+	if (t && t->incomplete && !(t->kind == TYPEARRAY && t->array.length == 0))
 		error(&tok.loc, "initializer specified for incomplete type");
 	for (;;) {
 		if (p.cur) {

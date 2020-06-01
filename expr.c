@@ -945,10 +945,11 @@ castexpr(struct scope *s)
 			*end = postfixexpr(s, e);
 			return r;
 		}
-		e = mkexpr(EXPRCAST, t);
-		// XXX check types 6.5.4
-		*end = e;
-		end = &e->base;
+		if (t->prop & PROPSCALAR) {
+			e = mkexpr(EXPRCAST, t);
+			*end = e;
+			end = &e->base;
+		}
 	}
 	*end = unaryexpr(s);
 

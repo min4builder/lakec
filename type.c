@@ -120,6 +120,7 @@ typecompatible(struct type *t1, struct type *t2)
 {
 	struct type *tmp;
 	struct param *p1, *p2;
+	struct member *m1, *m2;
 
 	if (t1 == t2)
 		return true;
@@ -132,11 +133,26 @@ typecompatible(struct type *t1, struct type *t2)
 	}
 	switch (t1->kind) {
 	case TYPEPOINTER:
+		if (t1->base->kind == TYPEVOID || t2->base->kind == TYPEVOID)
+			return true;
 		goto derived;
 	case TYPEARRAY:
 		if (t1->array.length && t2->array.length && t1->array.length != t2->array.length)
 			return false;
 		goto derived;
+	case TYPESTRUCT:
+	case TYPEUNION:
+		if (t1->structunion.tag && t2->structunion.tag)
+			return false;
+		if (t1->size != t2->size)
+			return false;
+		for (m1 = t1->structunion.members, m2 = t2->structunion.members; m1 && m2; m1 = m1->next, m2 = m2->next) {
+			if (!(typecompatible(m1->type, m2->type) && m1->offset == m2->offset))
+				return false;
+		}
+		if (m1 || m2)
+			return false;
+		return true;
 	case TYPEFUNC:
 		if (!t1->func.isprototype) {
 			if (!t2->func.isprototype)
@@ -161,7 +177,7 @@ typecompatible(struct type *t1, struct type *t2)
 			return false;
 		goto derived;
 	derived:
-		return t1->qual == t2->qual && typecompatible(t1->base, t2->base);
+		return (t1->qual & t2->qual) == t1->qual && typecompatible(t1->base, t2->base);
 	}
 	return false;
 }
