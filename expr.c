@@ -985,7 +985,8 @@ precedence(enum tokenkind t)
 static struct expr *
 binaryexpr(struct scope *s, struct expr *l, int i)
 {
-	struct expr *r;
+	struct expr *r, *f, *e;
+	struct decl *d;
 	struct location loc;
 	enum tokenkind op;
 	int j, k;
@@ -999,7 +1000,22 @@ binaryexpr(struct scope *s, struct expr *l, int i)
 		r = castexpr(s);
 		while ((k = precedence(tok.kind)) > j)
 			r = binaryexpr(s, r, k);
-		l = mkbinaryexpr(&loc, op, l, r);
+		d = scopegetdecl(s, mangleop(op, l->type, r->type), 1);
+		if (d) {
+			f = mkexpr(EXPRIDENT, d->type);
+			f->qual = d->qual;
+			f->ident.decl = d;
+			f->lvalue = 0;
+			f = decay(f);
+			e = mkexpr(EXPRCALL, f->type->base->base);
+			e->base = f;
+			e->call.args = l;
+			e->call.args->next = r;
+			e->call.nargs = 2;
+			l = e;
+		} else {
+			l = mkbinaryexpr(&loc, op, l, r);
+		}
 	}
 	return l;
 }

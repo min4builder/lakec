@@ -462,7 +462,9 @@ declaratortypes(struct scope *s, struct list *result, char **name, bool allowabs
 	struct expr *e;
 	uint64_t i;
 	enum typequal tq;
+	enum tokenkind overload;
 
+	overload = TNONE;
 	while (consume(TMUL)) {
 		tq = QUALNONE;
 		while (typequal(&tq))
@@ -494,6 +496,40 @@ declaratortypes(struct scope *s, struct list *result, char **name, bool allowabs
 		if (!name)
 			error(&tok.loc, "identifier not allowed in abstract declarator");
 		*name = tok.lit;
+		next();
+		break;
+	case TPERIOD:
+		next();
+		switch(tok.kind) {
+		case TINC:
+		case TDEC:
+		case TBAND:
+		case TMUL:
+		case TADD:
+		case TSUB:
+		case TBNOT:
+		case TLNOT:
+		case TDIV:
+		case TMOD:
+		case TSHL:
+		case TSHR:
+		case TLESS:
+		case TGREATER:
+		case TLEQ:
+		case TGEQ:
+		case TEQL:
+		case TNEQ:
+		case TXOR:
+		case TBOR:
+		case TLAND:
+		case TLOR:
+		case TELLIPSIS:
+		case TASSIGN:
+			overload = tok.kind;
+			break;
+		default:
+			error(&tok.loc, "unsupported overload");
+		}
 		next();
 		break;
 	default:
@@ -570,6 +606,11 @@ declaratortypes(struct scope *s, struct list *result, char **name, bool allowabs
 			listinsert(ptr->prev, &t->link);
 			break;
 		default:
+			if (overload) {
+				if (t->kind != TYPEFUNC)
+					error(&tok.loc, "overload must be function");
+				*name = manglegen(overload, t);
+			}
 			return;
 		}
 	}

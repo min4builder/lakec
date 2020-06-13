@@ -25,6 +25,7 @@ SRC=\
 	expr.c\
 	init.c\
 	main.c\
+	mangle.c\
 	map.c\
 	pp.c\
 	scan.c\
@@ -48,6 +49,7 @@ $(objdir)/eval.o    : eval.c    util.h cc.h       $(stagedeps) ; $(CC) $(CFLAGS)
 $(objdir)/expr.o    : expr.c    util.h cc.h       $(stagedeps) ; $(CC) $(CFLAGS) -c -o $@ expr.c
 $(objdir)/init.o    : init.c    util.h cc.h       $(stagedeps) ; $(CC) $(CFLAGS) -c -o $@ init.c
 $(objdir)/main.o    : main.c    util.h cc.h arg.h $(stagedeps) ; $(CC) $(CFLAGS) -c -o $@ main.c
+$(objdir)/mangle.o  : mangle.c  util.h cc.h       $(stagedeps) ; $(CC) $(CFLAGS) -c -o $@ mangle.c
 $(objdir)/map.o     : map.c     util.h            $(stagedeps) ; $(CC) $(CFLAGS) -c -o $@ map.c
 $(objdir)/pp.o      : pp.c      util.h cc.h       $(stagedeps) ; $(CC) $(CFLAGS) -c -o $@ pp.c
 $(objdir)/qbe.o     : qbe.c     util.h cc.h ops.h $(stagedeps) ; $(CC) $(CFLAGS) -c -o $@ qbe.c

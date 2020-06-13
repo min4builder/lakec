@@ -450,6 +450,11 @@ struct decl *stringdecl(struct expr *);
 
 void emittentativedefns(void);
 
+/* mangle */
+
+char *mangleop(enum tokenkind, struct type *, struct type *);
+char *manglegen(enum tokenkind, struct type *);
+
 /* scope */
 
 void scopeinit(void);
