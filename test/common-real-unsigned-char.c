@@ -1,3 +1,3 @@
 main() int {
-	return ((unsigned char)1 - (unsigned char)2) > 0;
+	return (1 .(unsigned char) - 2 .(unsigned char)) > 0;
 }

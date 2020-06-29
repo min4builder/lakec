@@ -1,3 +1,3 @@
 main() int {
-	return (unsigned char)0 < (unsigned char)256;
+	return 0 .(unsigned char) < 256 .(unsigned char);
 }

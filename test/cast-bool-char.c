@@ -1,3 +1,3 @@
 main() int {
-	return (_Bool)(unsigned char)256;
+	return 256 .(unsigned char).(_Bool);
 }

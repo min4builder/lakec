@@ -1,7 +1,7 @@
 struct a(x, y int);
 
 .+(x, y struct a) struct a {
-	return (struct a) { x.x + y.x, x.y + y.y };
+	return [struct a]{ x.x + y.x, x.y + y.y };
 }
 
 f() void {

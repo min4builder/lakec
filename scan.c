@@ -138,7 +138,7 @@ isodigit(int c)
 static enum tokenkind
 number(struct scanner *s)
 {
-	bool allowsign = false;
+	bool allowsign = false, allowdot = true;
 
 	s->usebuf = true;
 	for (;;) {
@@ -149,6 +149,7 @@ number(struct scanner *s)
 		case 'p':
 		case 'P':
 			allowsign = true;
+			allowdot = false;
 			break;
 		case '+':
 		case '-':
@@ -157,12 +158,16 @@ number(struct scanner *s)
 			break;
 		case '_':
 		case '.':
+			if (!allowdot)
+				goto done;
 			allowsign = false;
+			allowdot = false;
 			break;
 		default:
 			if (!isalnum(s->chr))
 				goto done;
 			allowsign = false;
+			allowdot = false;
 		}
 	}
 done:

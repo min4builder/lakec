@@ -1,2 +1,2 @@
 x [2]int;
-y = sizeof *&x;
+y = sizeof(*&x);

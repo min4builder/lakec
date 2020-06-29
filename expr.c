@@ -774,17 +774,24 @@ postfixexpr(struct scope *s, struct expr *r)
 			next();
 			break;
 		case TPERIOD:
-			r = mkunaryexpr(TBAND, r);
-			/* fallthrough */
 		case TARROW:
 			op = tok.kind;
+			next();
+			if (op == TPERIOD && consume(TLPAREN)) {
+				t = typename(s, NULL);
+				if (!t)
+					error(&tok.loc, "expected type on cast expression");
+				expect(TRPAREN, "to close '(' in cast");
+				e = mkexpr(EXPRCAST, t);
+				e->base = r;
+				break;
+			}
 			if (r->type->kind != TYPEPOINTER)
-				error(&tok.loc, "'%s' operator must be applied to pointer to struct/union", tokstr[op]);
+				r = mkunaryexpr(TBAND, r);
 			t = r->type->base;
 			tq = r->type->qual;
 			if (t->kind != TYPESTRUCT && t->kind != TYPEUNION)
 				error(&tok.loc, "'%s' operator must be applied to pointer to struct/union", tokstr[op]);
-			next();
 			if (tok.kind != TIDENT)
 				error(&tok.loc, "expected identifier after '%s' operator", tokstr[op]);
 			lvalue = op == TARROW || r->base->lvalue;
@@ -880,23 +887,11 @@ unaryexpr(struct scope *s)
 	case T_ALIGNOF:
 		next();
 		if (consume(TLPAREN)) {
-			t = typename(s, NULL);
-			if (t) {
-				expect(TRPAREN, "after type name");
-				/* might be part of a compound literal */
-				if (op == TSIZEOF && tok.kind == TLBRACE)
-					parseinit(s, t);
-			} else {
-				e = expr(s);
-				expect(TRPAREN, "after expression");
-				if (op == TSIZEOF)
-					e = postfixexpr(s, e);
-			}
-		} else if (op == TSIZEOF) {
 			t = NULL;
-			e = unaryexpr(s);
+			e = expr(s);
+			expect(TRPAREN, "after expression");
 		} else {
-			error(&tok.loc, "expected ')' after '_Alignof'");
+			t = typename(s, NULL);
 		}
 		if (!t) {
 			if (e->decayed)
@@ -910,6 +905,7 @@ unaryexpr(struct scope *s)
 		if (t->kind == TYPEFUNC)
 			error(&tok.loc, "%s operator applied to function type", tokstr[op]);
 		e = mkconstexpr(&typeulong, op == TSIZEOF ? t->size : t->align);
+		e = postfixexpr(s, e);
 		break;
 	default:
 		e = postfixexpr(s, NULL);
@@ -926,30 +922,26 @@ castexpr(struct scope *s)
 	struct expr *r, *e, **end;
 
 	end = &r;
-	while (consume(TLPAREN)) {
+	if (consume(TLPAREN)) {
+		e = expr(s);
+		expect(TRPAREN, "after expression to match '('");
+		*end = postfixexpr(s, e);
+		return r;
+	} else if (consume(TLBRACK)) {
 		tq = QUALNONE;
 		t = typename(s, &tq);
-		if (!t) {
-			e = expr(s);
-			expect(TRPAREN, "after expression to match '('");
-			*end = postfixexpr(s, e);
-			return r;
-		}
-		expect(TRPAREN, "after type name");
-		if (tok.kind == TLBRACE) {
-			e = mkexpr(EXPRCOMPOUND, t);
-			e->qual = tq;
-			e->lvalue = true;
-			e->compound.init = parseinit(s, t);
-			e = decay(e);
-			*end = postfixexpr(s, e);
-			return r;
-		}
-		if (t->prop & PROPSCALAR) {
-			e = mkexpr(EXPRCAST, t);
-			*end = e;
-			end = &e->base;
-		}
+		if (!t)
+			error(&tok.loc, "expected type after '[' in compound literal");
+		expect(TRBRACK, "after type name in compound literal");
+		if (tok.kind != TLBRACE)
+			error(&tok.loc, "expected '{' after type in compound literal");
+		e = mkexpr(EXPRCOMPOUND, t);
+		e->qual = tq;
+		e->lvalue = true;
+		e->compound.init = parseinit(s, t);
+		e = decay(e);
+		*end = postfixexpr(s, e);
+		return r;
 	}
 	*end = unaryexpr(s);
 
