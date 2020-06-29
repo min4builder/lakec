@@ -1,6 +1,6 @@
-void f(void) {
-	struct {
-		char c[8];
-		long long i[3];
-	} s = {'a'};
+f() void {
+	auto s struct (
+		c [8]char,
+		i [3]long long,
+	) = {'a'};
 }

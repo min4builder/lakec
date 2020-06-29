@@ -25,6 +25,7 @@ for test ; do
 	if "$@" && diff -Nu "$want" "$got" ; then
 		result="PASS"
 	else
+		[ $? -gt 128 ] && cat "$got"
 		result="FAIL"
 		numfail=$((numfail + 1))
 	fi

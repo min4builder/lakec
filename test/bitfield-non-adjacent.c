@@ -1,3 +1,1 @@
-struct {
-	int x : 1, y, z : 1;
-} s = {.z = 1};
+s struct(x : 1, y int, z : 1) = {.z = 1};

@@ -1,4 +1,4 @@
-void f(void) {
+f() void {
 	switch (0) {
 	case 3: break;
 	case 52: break;

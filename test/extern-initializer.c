@@ -1,1 +1,1 @@
-extern int x = 1;
+extern x int = 1;

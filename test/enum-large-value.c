@@ -1,4 +1,4 @@
-enum {
+enum (
 	A = 0x80000000,
-};
-int x = A < 0;
+);
+x int = A < 0;

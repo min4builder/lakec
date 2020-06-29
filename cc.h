@@ -443,7 +443,7 @@ void targinit(const char *);
 /* decl */
 
 struct decl *mkdecl(enum declkind, struct type *, enum typequal, enum linkage);
-_Bool decl(struct scope *, struct func *);
+_Bool decl(struct scope *, struct func *, _Bool);
 struct type *typename(struct scope *, enum typequal *);
 
 struct decl *stringdecl(struct expr *);

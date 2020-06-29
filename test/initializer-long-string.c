@@ -1,1 +1,1 @@
-char s[4] = "hello";
+s [4]char = "hello";

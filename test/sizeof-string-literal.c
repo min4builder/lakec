@@ -1,1 +1,1 @@
-int x = sizeof("abc");
+x int = sizeof("abc");

@@ -1,1 +1,1 @@
-char s[] = {"abc"};
+s []char = {"abc"};

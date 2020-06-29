@@ -1,3 +1,3 @@
-void f(int *x, int *y) {
+f(x, y *int) void {
 	x - y;
 }

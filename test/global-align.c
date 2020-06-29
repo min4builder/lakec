@@ -1,1 +1,1 @@
-_Alignas(8) char c;
+c _Alignas(8) char;

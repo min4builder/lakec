@@ -1,7 +1,5 @@
-struct {
-	signed : 4, x : 15, : 13;
-} s;
+s struct(_ : signed 4, x : signed 15, _ : signed 13);
 
-void f(void) {
+f() void {
 	s.x;
 }

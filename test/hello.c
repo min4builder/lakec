@@ -1,5 +1,5 @@
-int puts(const char *);
-int main(void) {
+puts(_ *const char) int;
+main() int {
 	puts("hello");
 	return 0;
 }

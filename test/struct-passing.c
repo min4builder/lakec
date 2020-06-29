@@ -1,11 +1,11 @@
-struct s {
-	int x;
-	struct {
-		char y[3];
-		short z;
-	} s[2];
-	double w;
-};
+struct s (
+	x int,
+	s [2]struct (
+		y [3]char,
+		z short,
+	),
+	w double,
+);
 
-void f(struct s s) {
+f(s struct s) void {
 }

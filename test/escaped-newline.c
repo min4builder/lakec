@@ -1,2 +1,2 @@
-int split\
-ident = 3;
+split\
+ident int = 3;

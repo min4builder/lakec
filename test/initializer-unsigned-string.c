@@ -1,1 +1,1 @@
-unsigned char s[] = "abc";
+s []unsigned char = "abc";

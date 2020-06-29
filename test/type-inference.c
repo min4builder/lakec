@@ -1,15 +1,14 @@
 extern a = 25;
-int a;
+a int;
 
 extern b = (unsigned char) 26LL;
-unsigned char b;
+b unsigned char;
 
-int f(int **d) {
-	const e = *d;
-	auto f = *e;
-	return f;
+f(d **int) int {
+	auto e = *d;
+	return *e;
 }
 
-extern c = f;
-int (*c)(int **);
+extern c *(_ **int) int = &f;
+c *(_ **int) int;
 

@@ -1,4 +1,4 @@
-char x[] = "hello";
-void f(void) {
-	char y[] = "hello";
+x []char = "hello";
+f() void {
+	auto y []char = "hello";
 }

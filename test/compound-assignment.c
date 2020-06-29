@@ -1,4 +1,5 @@
-void f(void) {
-	int x[1] = {0}, *p = x;
+f() void {
+	auto x [1]int = {0};
+	auto p *int = x;
 	*p++ += 1;
 }

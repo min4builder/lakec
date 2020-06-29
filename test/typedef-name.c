@@ -1,4 +1,4 @@
-typedef int x;
-void f(void) {
-	long x;
+typedef x int;
+f() void {
+	auto x long;
 }

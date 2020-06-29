@@ -1,2 +1,2 @@
-int x;
-long p = (long)&x;
+x int;
+p long = (long)&x;

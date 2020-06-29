@@ -37,7 +37,7 @@ char *progname(char *, char *);
 
 void listinsert(struct list *, struct list *);
 void listremove(struct list *);
-#define listelement(list, type, member) (type *)((char *)list - offsetof(type, member))
+#define listelement(list, type, member) ((type *)((char *)list - offsetof(type, member)))
 
 void *arrayadd(struct array *, size_t);
 void arrayaddptr(struct array *, void *);

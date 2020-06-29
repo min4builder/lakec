@@ -101,6 +101,8 @@ scopeputdecl(struct scope *s, const char *name, struct decl *d)
 
 	if (!s->decls)
 		s->decls = mkmap(32);
+	if (name[0] == '_' && name[1] == '\0')
+		return;
 	mapkey(&k, name, strlen(name));
 	*mapput(s->decls, &k) = d;
 }
@@ -112,6 +114,8 @@ scopeputtag(struct scope *s, const char *name, struct type *t)
 
 	if (!s->tags)
 		s->tags = mkmap(32);
+	if (name[0] == '_' && name[1] == '\0')
+		return;
 	mapkey(&k, name, strlen(name));
 	*mapput(s->tags, &k) = t;
 }

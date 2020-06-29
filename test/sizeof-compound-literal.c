@@ -1,1 +1,1 @@
-int x = sizeof (int){1};
+x int = sizeof (int){1};

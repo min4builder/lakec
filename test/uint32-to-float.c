@@ -1,4 +1,4 @@
-unsigned g(void);
-float f(void) {
+g() unsigned;
+f() float {
 	return g();
 }

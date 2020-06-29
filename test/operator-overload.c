@@ -1,12 +1,12 @@
-struct a { int x, y; };
+struct a(x, y int);
 
-struct a .+(struct a x, struct a y) {
+.+(x, y struct a) struct a {
 	return (struct a) { x.x + y.x, x.y + y.y };
 }
 
-void f() {
-	struct a x = { 6, 6 };
-	struct a y = { 7, 7 };
-	struct a z = x + y;
+f() void {
+	auto x struct a = { 6, 6 };
+	auto y struct a = { 7, 7 };
+	auto z = x + y;
 }
 

@@ -58,7 +58,7 @@ main(int argc, char *argv[])
 	} else {
 		scopeinit();
 		while (tok.kind != TEOF) {
-			if (!decl(&filescope, NULL))
+			if (!decl(&filescope, NULL, false))
 				error(&tok.loc, "expected declaration or function definition");
 		}
 		emittentativedefns();

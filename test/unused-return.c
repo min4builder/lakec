@@ -1,4 +1,4 @@
-int g(void);
-void f(void) {
+g() int;
+f() void {
 	g();
 }

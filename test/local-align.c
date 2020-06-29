@@ -1,3 +1,3 @@
-void f(void) {
-	_Alignas(16) char x[4];
+f() void {
+	auto x _Alignas(16) [4]char;
 }

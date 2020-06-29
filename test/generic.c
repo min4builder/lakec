@@ -1,6 +1,6 @@
-int x = _Generic(123,
+x int = _Generic(123,
 	const int: 1,
 	unsigned: 2,
 	int: 3,
-	int *: 4
+	*int: 4
 );

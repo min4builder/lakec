@@ -1,4 +1,4 @@
-int x[2];
-void f(void) {
+x [2]int;
+f() void {
 	1 + x;
 }

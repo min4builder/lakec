@@ -1,4 +1,4 @@
-typedef int x;
-void f(void) {
+typedef x int;
+f() void {
 x:;
 }

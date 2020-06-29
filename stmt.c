@@ -67,7 +67,7 @@ stmt(struct func *f, struct scope *s)
 		next();
 		s = mkscope(s);
 		while (tok.kind != TRBRACE) {
-			if (gotolabel(f) || !decl(s, f))
+			if (gotolabel(f) || !decl(s, f, true))
 				stmt(f, s);
 		}
 		s = delscope(s);
@@ -204,7 +204,7 @@ stmt(struct func *f, struct scope *s)
 		next();
 		expect(TLPAREN, "after while");
 		s = mkscope(s);
-		if (!decl(s, f)) {
+		if (!decl(s, f, true)) {
 			if (tok.kind != TSEMICOLON) {
 				e = expr(s);
 				funcexpr(f, e);

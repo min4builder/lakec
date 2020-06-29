@@ -1,4 +1,4 @@
-int x;
-int f(void) {
+x int;
+f() int {
 	return sizeof (x)++;
 }

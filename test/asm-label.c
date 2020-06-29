@@ -1,5 +1,5 @@
-int x __asm__("y");
-int x = 2;
+x int __asm__("y");
+x int = 2;
 
-void f(void) __asm__("g");
-void f(void) {}
+f() void __asm__("g");
+f() void {}

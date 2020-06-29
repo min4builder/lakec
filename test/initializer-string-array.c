@@ -1,3 +1,3 @@
-void f(void) {
-	char x[][4] = {"abc", "xyz"};
+f() void {
+	auto x [][4]char = {"abc", "xyz"};
 }

@@ -1,5 +1,5 @@
-int main(void) {
-	int x = 2, y = 0;
+main() int {
+	auto x, y = 2, 0;
 	do {
 		if (x == 1)
 			continue;

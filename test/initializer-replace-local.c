@@ -1,7 +1,5 @@
-void f(void) {
-	struct {
-		char s[6];
-	} x = {
+f() void {
+	auto x struct(s [6]char) = {
 		.s[0] = 'x',
 		.s[4] = 'y',
 		.s = "hello",

@@ -1,16 +1,5 @@
-typedef int x;
+typedef x int;
 
-void f1(int(x));
-void f1(int (*)(int));
+f1(_ (_ x) int) void;
+f1(_ *(_ int) int) void;
 
-void f2(int(y));
-void f2(int);
-
-void f3(int((*)));
-void f3(int *);
-
-void f4(int((*x)));
-void f4(int *);
-
-void f5(int((x)));
-void f5(int (*)(int));

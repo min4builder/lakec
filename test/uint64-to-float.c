@@ -1,4 +1,4 @@
-unsigned long long g(void);
-float f(void) {
+g() unsigned long long;
+f() float {
 	return g();
 }

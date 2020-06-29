@@ -1,4 +1,4 @@
-struct {int x, y;} g(void);
-int f(void) {
+g() struct(x, y int);
+f() int {
 	return g().y;
 }

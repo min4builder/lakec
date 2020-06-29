@@ -1,3 +1,3 @@
-void f(void) {
-	char s[10] = "abc";
+f() void {
+	auto s [10]char = "abc";
 }

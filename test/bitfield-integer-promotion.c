@@ -1,7 +1,5 @@
-struct {
-	unsigned a : 2;
-} s;
+s struct(a : 2);
 
-int main(void) {
+main() int {
 	return -1 > s.a;
 }

@@ -1,4 +1,4 @@
-union {
-	int x;
-	double y;
-} a = {.x = 5}, b = {.y = 7.5};
+a, b union (
+	x int,
+	y double,
+) = {.x = 5}, {.y = 7.5};

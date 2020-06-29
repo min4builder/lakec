@@ -1,8 +1,8 @@
-struct s {
-	char s[5];
-	float f;
-} x;
+x struct s (
+	s [5]char,
+	f float,
+);
 
-void f(void) {
-	struct s y = x;
+f() void {
+	auto y = x;
 }

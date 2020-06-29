@@ -1,1 +1,1 @@
-const struct {struct {int x, y;} t;} s = {{{1}, 2}};
+s const struct(t struct(x, y int)) = {{{1}, 2}};

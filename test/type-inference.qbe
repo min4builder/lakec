@@ -6,17 +6,13 @@ function w $f(l %.1) {
 	%.2 =l alloc8 8
 	storel %.1, %.2
 	%.3 =l alloc8 8
-	%.7 =l alloc4 4
 @body.2
 	%.4 =l add %.3, 0
 	%.5 =l loadl %.2
 	%.6 =l loadl %.5
 	storel %.6, %.4
-	%.8 =l add %.7, 0
-	%.9 =l loadl %.3
-	%.10 =w loadsw %.9
-	storew %.10, %.8
-	%.11 =w loadsw %.7
-	ret %.11
+	%.7 =l loadl %.3
+	%.8 =w loadsw %.7
+	ret %.8
 }
 export data $c = align 8 { l $f, }

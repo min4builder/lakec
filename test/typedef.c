@@ -1,2 +1,2 @@
-typedef int T;
-T x;
+typedef T int;
+x T;
