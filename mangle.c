@@ -129,6 +129,7 @@ mangletype(struct type **tstack, int *top, struct type *t, char *w, char *max)
 				n = mangletype(tstack, top, m->type, n, name + sizeof(name));
 			w += snprintf(w, max-w, "%ld%*s", n-name, (int) (n-name), name);
 			if (w > max) w = max;
+			*top = nt;
 		}
 		tstack[(*top)++] = t;
 		break;

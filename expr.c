@@ -712,7 +712,6 @@ postfixexpr(struct scope *s, struct expr *r)
 	struct member *m;
 	uint64_t offset;
 	enum typequal tq;
-	enum tokenkind op;
 	bool lvalue;
 
 	if (!r)
@@ -773,28 +772,35 @@ postfixexpr(struct scope *s, struct expr *r)
 			e = decay(e);
 			next();
 			break;
-		case TPERIOD:
 		case TARROW:
-			op = tok.kind;
 			next();
-			if (op == TPERIOD && consume(TLPAREN)) {
+			if (consume(TLBRACK)) {
 				t = typename(s, NULL);
 				if (!t)
 					error(&tok.loc, "expected type on cast expression");
-				expect(TRPAREN, "to close '(' in cast");
-				e = mkexpr(EXPRCAST, t);
-				e->base = r;
+				expect(TRBRACK, "to close '[' in cast");
+				if (t->prop & PROPSCALAR) {
+					e = mkexpr(EXPRCAST, t);
+					e->base = r;
+				} else {
+					/* XXX HACK FIXME */
+					e->type = t;
+				}
 				break;
 			}
+			error(&tok.loc, "'->' not implemented yet");
+			break;
+		case TPERIOD:
+			next();
+			if (tok.kind != TIDENT)
+				error(&tok.loc, "expected identifier after '.' operator");
+			lvalue = r->type->kind == TYPEPOINTER || r->lvalue;
 			if (r->type->kind != TYPEPOINTER)
 				r = mkunaryexpr(TBAND, r);
 			t = r->type->base;
 			tq = r->type->qual;
 			if (t->kind != TYPESTRUCT && t->kind != TYPEUNION)
-				error(&tok.loc, "'%s' operator must be applied to pointer to struct/union", tokstr[op]);
-			if (tok.kind != TIDENT)
-				error(&tok.loc, "expected identifier after '%s' operator", tokstr[op]);
-			lvalue = op == TARROW || r->base->lvalue;
+				error(&tok.loc, "'.' operator must be applied to pointer to struct/union");
 			tmp = r;
 			r = mkexpr(EXPRCAST, mkpointertype(&typechar, QUALNONE));
 			r->base = tmp;
@@ -891,7 +897,9 @@ unaryexpr(struct scope *s)
 			e = expr(s);
 			expect(TRPAREN, "after expression");
 		} else {
+			expect(TLBRACK, "before type");
 			t = typename(s, NULL);
+			expect(TRBRACK, "after type");
 		}
 		if (!t) {
 			if (e->decayed)
@@ -933,8 +941,8 @@ castexpr(struct scope *s)
 		if (!t)
 			error(&tok.loc, "expected type after '[' in compound literal");
 		expect(TRBRACK, "after type name in compound literal");
-		if (tok.kind != TLBRACE)
-			error(&tok.loc, "expected '{' after type in compound literal");
+		if (tok.kind != TLPAREN)
+			error(&tok.loc, "expected '(' after type in compound literal");
 		e = mkexpr(EXPRCOMPOUND, t);
 		e->qual = tq;
 		e->lvalue = true;

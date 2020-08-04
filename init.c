@@ -225,10 +225,9 @@ parseinit(struct scope *s, struct type *t)
 			else if (p.cur->type->kind == TYPESTRUCT || p.cur->type->kind == TYPEUNION)
 				focus(&p);
 		}
-		if (consume(TLBRACE)) {
+		if (tok.kind == TLPAREN && !(p.cur == p.sub && p.cur->type->prop & PROPSCALAR)) {
+			next();
 			if (p.cur == p.sub) {
-				if (p.cur->type->prop & PROPSCALAR)
-					error(&tok.loc, "nested braces around scalar initializer");
 				assert(p.cur->type->kind == TYPEARRAY);
 				focus(&p);
 			}
@@ -276,10 +275,10 @@ parseinit(struct scope *s, struct type *t)
 				return p.init;
 			if (tok.kind == TCOMMA) {
 				next();
-				if (tok.kind != TRBRACE)
+				if (tok.kind != TRPAREN)
 					break;
-			} else if (tok.kind != TRBRACE) {
-				error(&tok.loc, "expected ',' or '}' after initializer");
+			} else if (tok.kind != TRPAREN) {
+				error(&tok.loc, "expected ',' or ')' after initializer");
 			}
 			next();
 			p.sub = p.cur;

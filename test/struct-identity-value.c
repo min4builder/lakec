@@ -14,7 +14,7 @@ struct c (
 );
 
 f() void {
-	auto d struct c = {0};
+	auto d struct c = (0);
 	auto e a = d;
 	auto f b = e;
 	auto g struct c = f;

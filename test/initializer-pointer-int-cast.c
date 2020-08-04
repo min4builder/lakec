@@ -1,2 +1,2 @@
 x int;
-p long = (&x).(long);
+p long = ((&x)->[long]);

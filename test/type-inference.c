@@ -1,7 +1,7 @@
 extern a = 25;
 a int;
 
-extern b = 26LL.(unsigned char);
+extern b = 26LL->[unsigned char];
 b unsigned char;
 
 f(d **int) int {

@@ -1,1 +1,1 @@
-s []char = {"abc"};
+s []char = ("abc");
