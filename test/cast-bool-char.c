@@ -1,3 +1,3 @@
 main() int {
-	return 256->[unsigned char]->[_Bool];
+	return 256->[u8]->[bool];
 }

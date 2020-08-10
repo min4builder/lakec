@@ -27,25 +27,6 @@ enum storageclass {
 	SCTHREADLOCAL = 1<<6,
 };
 
-enum typespec {
-	SPECNONE,
-
-	SPECVOID     = 1<<1,
-	SPECCHAR     = 1<<2,
-	SPECBOOL     = 1<<3,
-	SPECINT      = 1<<4,
-	SPECFLOAT    = 1<<5,
-	SPECDOUBLE   = 1<<6,
-	SPECSHORT    = 1<<7,
-	SPECLONG     = 1<<8,
-	SPECLONG2    = 1<<9,
-	SPECSIGNED   = 1<<10,
-	SPECUNSIGNED = 1<<11,
-	SPECCOMPLEX  = 1<<12,
-
-	SPECLONGLONG = SPECLONG|SPECLONG2,
-};
-
 enum funcspec {
 	FUNCNONE,
 
@@ -183,7 +164,7 @@ tagspec(struct scope *s)
 	} else {
 		if (kind == TYPEENUM) {
 			t = xmalloc(sizeof(*t));
-			*t = typeuint;
+			*t = *targ->typeuint;
 			t->kind = kind;
 		} else {
 			t = mktype(kind, PROPOBJECT);
@@ -237,11 +218,11 @@ tagspec(struct scope *s)
 			invalid:
 				error(&tok.loc, "enumerator '%s' value cannot be represented as 'int'", name);
 			}
-			d = mkdecl(DECLCONST, &typeint, QUALNONE, LINKNONE);
+			d = mkdecl(DECLCONST, targ->typeint, QUALNONE, LINKNONE);
 			d->value = mkintconst(t->repr, i);
 			if (i >= 1ull << 31 && i < 1ull << 63) {
 				large = true;
-				d->type = &typeuint;
+				d->type = targ->typeuint;
 			}
 			if (large && t->basic.issigned)
 				error(&tok.loc, "neither 'int' nor 'unsigned' can represent all enumerator values");
@@ -266,7 +247,6 @@ decltype(struct scope *s, int *align)
 	struct decl *d;
 	struct expr *e;
 	struct param **p;
-	enum typespec ts = SPECNONE;
 	enum typequal *tq, qual = QUALNONE;
 	uint64_t i;
 
@@ -284,64 +264,12 @@ decltype(struct scope *s, int *align)
 			*t = &typevoid;
 			next();
 			goto done;
-		case TCHAR:
-			ts |= SPECCHAR;
-			next();
-			goto done;
-		case TSHORT:
-			ts |= SPECSHORT;
-			next();
-			goto done;
-		case TINT:
-			ts |= SPECINT;
-			next();
-			goto done;
-		case TLONG:
-			if (ts & SPECLONG2)
-				error(&tok.loc, "too many 'long'");
-			if (ts & SPECLONG)
-				ts |= SPECLONG2;
-			ts |= SPECLONG;
-			next();
-			break;
-		case TFLOAT:
-			ts |= SPECFLOAT;
-			next();
-			goto done;
-		case TDOUBLE:
-			ts |= SPECDOUBLE;
-			next();
-			goto done;
-		case TSIGNED:
-			if (ts & SPECSIGNED)
-				error(&tok.loc, "duplicate 'signed'");
-			ts |= SPECSIGNED;
-			next();
-			break;
-		case TUNSIGNED:
-			if (ts & SPECUNSIGNED)
-				error(&tok.loc, "duplicate 'unsigned'");
-			ts |= SPECUNSIGNED;
-			next();
-			break;
-		case T_BOOL:
-			*t = &typebool;
-			next();
-			goto done;
-		case T_COMPLEX:
-			fatal("_Complex is not yet supported");
-			goto done;
-		case T_ATOMIC:
-			fatal("_Atomic is not yet supported");
-			goto done;
 		case TSTRUCT:
 		case TUNION:
 		case TENUM:
 			*t = tagspec(s);
 			goto done;
 		case TIDENT:
-			if (*t || ts)
-				goto done;
 			d = scopegetdecl(s, tok.lit, 1);
 			if (!d || d->kind != DECLTYPE)
 				goto done;
@@ -391,13 +319,11 @@ decltype(struct scope *s, int *align)
 			next();
 			*t = mktype(TYPEFUNC, PROPDERIVED);
 			(*t)->qual = QUALNONE;
-			(*t)->func.isprototype = false;
 			(*t)->func.isvararg = false;
 			(*t)->func.isnoreturn = false;
 			(*t)->func.params = NULL;
 			p = &(*t)->func.params;
 			if (tok.kind != TRPAREN) {
-				(*t)->func.isprototype = true;
 				for (;;) {
 					if (consume(TELLIPSIS)) {
 						(*t)->func.isvararg = true;
@@ -411,7 +337,7 @@ decltype(struct scope *s, int *align)
 					(*t)->func.params = NULL;
 			}
 			expect(TRPAREN, "to close function declarator");
-			(*t)->func.paraminfo = (*t)->func.isprototype;
+			(*t)->func.paraminfo = true;
 			tq = &(*t)->qual;
 			t = &(*t)->base;
 			break;
@@ -437,33 +363,8 @@ decltype(struct scope *s, int *align)
 		default:
 			goto done;
 		}
-		if (*t && ts)
-			error(&tok.loc, "multiple types in declaration specifiers");
 	}
 done:
-	switch ((int)ts) {
-	case SPECNONE:                                            break;
-	case SPECCHAR:                          *t = &typechar;    break;
-	case SPECSIGNED|SPECCHAR:               *t = &typeschar;   break;
-	case SPECUNSIGNED|SPECCHAR:             *t = &typeuchar;   break;
-	case SPECSHORT:
-	case SPECSIGNED|SPECSHORT:              *t = &typeshort;   break;
-	case SPECUNSIGNED|SPECSHORT:            *t = &typeushort;  break;
-	case SPECINT:
-	case SPECSIGNED:                        *t = &typeint;     break;
-	case SPECUNSIGNED:                      *t = &typeuint;    break;
-	case SPECLONG:
-	case SPECSIGNED|SPECLONG:               *t = &typelong;    break;
-	case SPECUNSIGNED|SPECLONG:             *t = &typeulong;   break;
-	case SPECLONGLONG:
-	case SPECSIGNED|SPECLONGLONG:           *t = &typellong;   break;
-	case SPECUNSIGNED|SPECLONGLONG:         *t = &typeullong;  break;
-	case SPECFLOAT:                         *t = &typefloat;   break;
-	case SPECDOUBLE:                        *t = &typedouble;  break;
-	case SPECLONG|SPECDOUBLE:               *t = &typeldouble; break;
-	default:
-		error(&tok.loc, "invalid combination of type specifiers");
-	}
 	if (!*t && base)
 		error(&tok.loc, "expecting type");
 	if (base && qual && base->kind == TYPEARRAY) {
@@ -528,7 +429,7 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 	enum tokenkind overload = TNONE;
 	enum typequal tq;
 	char *name;
-	uint64_t width;
+	int64_t width;
 
 	t = NULL;
 	if (sc)
@@ -550,15 +451,17 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 			width = -1;
 			if (consume(TCOLON)) {
 				typequal(&tq);
-				if (consume(TSIGNED))
-					t = &typeint;
-				else
-					t = &typeuint;
-				width = intconstexpr(s, false);
-				if (t == &typeint && width >= 32)
-					t = &typelong;
-				else if (t == &typeuint && width > 32)
-					t = &typeulong;
+				width = intconstexpr(s, true);
+				if (width < 0) {
+					width = -width;
+					t = targ->typeint;
+				} else {
+					t = targ->typeuint;
+				}
+				if (t == targ->typeint && width >= targ->typeint->size * 8)
+					t = targ->typelong;
+				else if (t == targ->typeuint && width > targ->typeuint->size * 8)
+					t = targ->typeulong;
 				qt.type = t;
 				qt.qual = tq;
 			}
@@ -613,7 +516,6 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 		next();
 		t = mktype(TYPEFUNC, PROPDERIVED);
 		t->qual = QUALNONE;
-		t->func.isprototype = true;
 		t->func.isvararg = false;
 		t->func.isnoreturn = false;
 		t->func.params = NULL;
@@ -630,7 +532,7 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 			}
 		}
 		expect(TRPAREN, "to close function declarator");
-		t->func.paraminfo = t->func.isprototype || t->func.params || tok.kind == TLBRACE;
+		t->func.paraminfo = t->func.params || tok.kind == TLBRACE;
 		if (overload) {
 			cur = mkdeclbuilder(manglegen(overload, t), -1);
 			listinsert(db->prev, &cur->list);

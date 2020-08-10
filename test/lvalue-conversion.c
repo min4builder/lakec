@@ -1,6 +1,6 @@
 g(...) void;
 f() void {
-	static c const unsigned char = 0;
+	static c const u8 = 0;
 	g(c);
 	g(~c);
 }

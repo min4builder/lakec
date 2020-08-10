@@ -206,11 +206,11 @@ mkbinaryexpr(struct location *loc, enum tokenkind op, struct expr *l, struct exp
 			error(loc, "right operand of '%s' operator must be scalar", tokstr[op]);
 		l = exprconvert(l, &typebool);
 		r = exprconvert(r, &typebool);
-		t = &typeint;
+		t = &typebool;
 		break;
 	case TEQL:
 	case TNEQ:
-		t = &typeint;
+		t = &typebool;
 		if (lp & PROPARITH && rp & PROPARITH) {
 			commonreal(&l, &r);
 			break;
@@ -240,7 +240,7 @@ mkbinaryexpr(struct location *loc, enum tokenkind op, struct expr *l, struct exp
 	case TGREATER:
 	case TLEQ:
 	case TGEQ:
-		t = &typeint;
+		t = &typebool;
 		if (lp & PROPREAL && rp & PROPREAL) {
 			commonreal(&l, &r);
 		} else if (l->type->kind == TYPEPOINTER && r->type->kind == TYPEPOINTER) {
@@ -267,7 +267,7 @@ mkbinaryexpr(struct location *loc, enum tokenkind op, struct expr *l, struct exp
 		t = l->type;
 		if (t->base->incomplete || !(t->base->prop & PROPOBJECT))
 			error(loc, "pointer operand to '+' must be to complete object type");
-		r = mkbinaryexpr(loc, TMUL, exprconvert(r, &typeulong), mkconstexpr(&typeulong, t->base->size));
+		r = mkbinaryexpr(loc, TMUL, exprconvert(r, targ->typeulong), mkconstexpr(targ->typeulong, t->base->size));
 		break;
 	case TSUB:
 		if (lp & PROPARITH && rp & PROPARITH) {
@@ -280,21 +280,21 @@ mkbinaryexpr(struct location *loc, enum tokenkind op, struct expr *l, struct exp
 			error(loc, "pointer operand to '-' must be to complete object type");
 		if (rp & PROPINT) {
 			t = l->type;
-			r = mkbinaryexpr(loc, TMUL, exprconvert(r, &typeulong), mkconstexpr(&typeulong, t->base->size));
+			r = mkbinaryexpr(loc, TMUL, exprconvert(r, targ->typeulong), mkconstexpr(targ->typeulong, t->base->size));
 		} else {
 			if (!typecompatible(l->type->base, r->type->base))
 				error(&tok.loc, "pointer operands to '-' are to incompatible types");
 			t = l->type->base;
 			e = l;
-			l = mkexpr(EXPRCAST, &typelong);
+			l = mkexpr(EXPRCAST, targ->typelong);
 			l->base = e;
 			e = r;
-			r = mkexpr(EXPRCAST, &typelong);
+			r = mkexpr(EXPRCAST, targ->typelong);
 			r->base = e;
 			l = mkbinaryexpr(loc, TSUB, l, r);
-			r = mkconstexpr(&typelong, t->size);
+			r = mkconstexpr(targ->typelong, t->size);
 			op = TDIV;
-			t = &typelong;
+			t = targ->typelong;
 		}
 		break;
 	case TMOD:
@@ -328,35 +328,21 @@ mkbinaryexpr(struct location *loc, enum tokenkind op, struct expr *l, struct exp
 }
 
 static struct type *
-inttype(unsigned long long val, bool decimal, char *end)
+inttype(unsigned long long val, char *end)
 {
-	static struct {
-		struct type *type;
-		const char *end1, *end2;
-	} limits[] = {
-		{&typeint,    "",    NULL},
-		{&typeuint,   "u",   NULL},
-		{&typelong,   "l",   NULL},
-		{&typeulong,  "ul",  "lu"},
-		{&typellong,  "ll",  NULL},
-		{&typeullong, "ull", "llu"},
+	struct type *limits[] = {
+		targ->typeint, targ->typeuint,
+		targ->typelong, targ->typeulong,
+		&typei64, &typeu64,
 	};
 	struct type *t;
 	size_t i, step;
 
 	for (i = 0; end[i]; ++i)
 		end[i] = tolower(end[i]);
-	for (i = 0; i < LEN(limits); ++i) {
-		if (strcmp(end, limits[i].end1) == 0)
-			break;
-		if (limits[i].end2 && strcmp(end, limits[i].end2) == 0)
-			break;
-	}
-	if (i == LEN(limits))
-		error(&tok.loc, "invalid integer constant suffix '%s'", end);
-	step = i % 2 || decimal ? 2 : 1;
-	for (; i < LEN(limits); i += step) {
-		t = limits[i].type;
+	step = end[i-1] == 'u' ? 2 : 1;
+	for (i = end[i-1] == 'u' ? 1 : 0; i < LEN(limits); i += step) {
+		t = limits[i];
 		if (val <= 0xffffffffffffffffu >> (8 - t->size << 3) + t->basic.issigned)
 			return t;
 	}
@@ -501,11 +487,10 @@ primaryexpr(struct scope *s)
 		break;
 	case TCHARCONST:
 		src = tok.lit;
-		t = &typeint;
-		switch (*src) {
-		case 'L': ++src; t = targ->typewchar; break;
-		case 'u': ++src; t = &typeushort;     break;
-		case 'U': ++src; t = &typeuint;       break;
+		t = &typechar;
+		if (*src == 'L') {
+			++src;
+			t = targ->typerune;
 		}
 		assert(*src == '\'');
 		++src;
@@ -524,11 +509,9 @@ primaryexpr(struct scope *s)
 			if (errno && errno != ERANGE)
 				error(&tok.loc, "invalid floating constant '%s': %s", tok.lit, strerror(errno));
 			if (!end[0])
-				e->type = &typedouble;
+				e->type = &typef64;
 			else if (tolower(end[0]) == 'f' && !end[1])
-				e->type = &typefloat;
-			else if (tolower(end[0]) == 'l' && !end[1])
-				e->type = &typeldouble;
+				e->type = &typef32;
 			else
 				error(&tok.loc, "invalid floating constant suffix '%s'", end);
 		} else {
@@ -537,7 +520,7 @@ primaryexpr(struct scope *s)
 			e->constant.i = strtoull(tok.lit, &end, 0);
 			if (errno)
 				error(&tok.loc, "invalid integer constant '%s': %s", tok.lit, strerror(errno));
-			e->type = inttype(e->constant.i, base == 10, end);
+			e->type = inttype(e->constant.i, end);
 		}
 		next();
 		break;
@@ -607,10 +590,10 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 	case BUILTINALLOCA:
 		e = mkexpr(EXPRBUILTIN, mkpointertype(&typevoid, QUALNONE));
 		e->builtin.kind = BUILTINALLOCA;
-		e->base = exprconvert(assignexpr(s), &typeulong);
+		e->base = exprconvert(assignexpr(s), targ->typeulong);
 		break;
 	case BUILTINCONSTANTP:
-		e = mkconstexpr(&typeint, eval(condexpr(s), EVALARITH)->kind == EXPRCONST);
+		e = mkconstexpr(&typebool, eval(condexpr(s), EVALARITH)->kind == EXPRCONST);
 		break;
 	case BUILTINEXPECT:
 		/* just a no-op for now */
@@ -620,7 +603,7 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 		delexpr(assignexpr(s));
 		break;
 	case BUILTININFF:
-		e = mkexpr(EXPRCONST, &typefloat);
+		e = mkexpr(EXPRCONST, &typef64);
 		/* TODO: use INFINITY here when we can handle musl's math.h */
 		e->constant.f = strtod("inf", NULL);
 		break;
@@ -628,7 +611,7 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 		e = assignexpr(s);
 		if (!e->decayed || e->base->kind != EXPRSTRING || e->base->string.size > 0)
 			error(&tok.loc, "__builtin_nanf currently only supports empty string literals");
-		e = mkexpr(EXPRCONST, &typefloat);
+		e = mkexpr(EXPRCONST, &typef64);
 		/* TODO: use NAN here when we can handle musl's math.h */
 		e->constant.f = strtod("nan", NULL);
 		break;
@@ -643,13 +626,13 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 		if (!m)
 			error(&tok.loc, "struct/union has no member named '%s'", name);
 		designator(s, m->type, &offset);
-		e = mkconstexpr(&typeulong, offset);
+		e = mkconstexpr(targ->typeulong, offset);
 		free(name);
 		break;
 	case BUILTINTYPESCOMPATIBLEP:
 		t = typename(s, NULL);
 		expect(TCOMMA, "after type name");
-		e = mkconstexpr(&typeint, typecompatible(t, typename(s, NULL)));
+		e = mkconstexpr(&typebool, typecompatible(t, typename(s, NULL)));
 		break;
 	case BUILTINVAARG:
 		e = mkexpr(EXPRBUILTIN, NULL);
@@ -758,7 +741,7 @@ postfixexpr(struct scope *s, struct expr *r)
 				if (!p && !t->func.isvararg && t->func.paraminfo)
 					error(&tok.loc, "too many arguments for function call");
 				*end = assignexpr(s);
-				if (!t->func.isprototype || (t->func.isvararg && !p))
+				if (t->func.isvararg && !p)
 					*end = exprpromote(*end);
 				else
 					*end = exprconvert(*end, p->type);
@@ -808,7 +791,7 @@ postfixexpr(struct scope *s, struct expr *r)
 			m = typemember(t, tok.lit, &offset);
 			if (!m)
 				error(&tok.loc, "struct/union has no member named '%s'", tok.lit);
-			r = mkbinaryexpr(&tok.loc, TADD, r, mkconstexpr(&typeulong, offset));
+			r = mkbinaryexpr(&tok.loc, TADD, r, mkconstexpr(targ->typeulong, offset));
 			tmp = r;
 			r = mkexpr(EXPRCAST, mkpointertype(m->type, tq | m->qual));
 			r->base = tmp;
@@ -872,7 +855,7 @@ unaryexpr(struct scope *s)
 			error(&tok.loc, "operand of unary '-' operator must have arithmetic type");
 		if (e->type->prop & PROPINT)
 			e = exprpromote(e);
-		e = mkbinaryexpr(&tok.loc, TSUB, mkconstexpr(&typeint, 0), e);
+		e = mkbinaryexpr(&tok.loc, TSUB, mkconstexpr(targ->typeint, 0), e);
 		break;
 	case TBNOT:
 		next();
@@ -887,7 +870,7 @@ unaryexpr(struct scope *s)
 		e = castexpr(s);
 		if (!(e->type->prop & PROPSCALAR))
 			error(&tok.loc, "operator '!' must have scalar operand");
-		e = mkbinaryexpr(&tok.loc, TEQL, e, mkconstexpr(&typeint, 0));
+		e = mkbinaryexpr(&tok.loc, TEQL, e, mkconstexpr(targ->typeint, 0));
 		break;
 	case TSIZEOF:
 	case T_ALIGNOF:
@@ -912,7 +895,7 @@ unaryexpr(struct scope *s)
 			error(&tok.loc, "%s operator applied to incomplete type", tokstr[op]);
 		if (t->kind == TYPEFUNC)
 			error(&tok.loc, "%s operator applied to function type", tokstr[op]);
-		e = mkconstexpr(&typeulong, op == TSIZEOF ? t->size : t->align);
+		e = mkconstexpr(targ->typeulong, op == TSIZEOF ? t->size : t->align);
 		e = postfixexpr(s, e);
 		break;
 	default:

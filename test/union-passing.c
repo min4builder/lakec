@@ -1,2 +1,2 @@
-f(u union(x int, y float)) void {
+f(u union(x int, y f32)) void {
 }

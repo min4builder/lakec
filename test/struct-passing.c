@@ -2,9 +2,9 @@ struct s (
 	x int,
 	s [2]struct (
 		y [3]char,
-		z short,
+		z i16,
 	),
-	w double,
+	w f64,
 );
 
 f(s struct s) void {

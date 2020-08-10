@@ -8,11 +8,19 @@ struct target *targ;
 static struct target alltargs[] = {
 	{
 		.name = "x86_64",
-		.typewchar = &typeint,
+		.typerune = &typei32,
+		.typeint = &typei32,
+		.typeuint = &typeu32,
+		.typelong = &typei64,
+		.typeulong = &typeu64,
 	},
 	{
 		.name = "aarch64",
-		.typewchar = &typeuint,
+		.typerune = &typeu32,
+		.typeint = &typei32,
+		.typeuint = &typeu32,
+		.typelong = &typei64,
+		.typeulong = &typeu64,
 	},
 };
 

@@ -1,7 +1,7 @@
 struct s (
 	a [5]struct (
 		b union (
-			z float,
+			z f32,
 			c *char,
 		),
 	),

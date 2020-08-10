@@ -314,7 +314,7 @@ funcstore(struct func *f, struct type *t, enum typequal tq, struct lvalue lval, 
 		break;
 	}
 	case TYPEPOINTER:
-		t = &typeulong;
+		t = targ->typeulong;
 		/* fallthrough */
 	default:
 		assert(tp & PROPSCALAR);
@@ -463,9 +463,9 @@ convert(struct func *f, struct type *dst, struct type *src, struct value *l)
 	struct value *r = NULL;
 
 	if (src->kind == TYPEPOINTER)
-		src = &typeulong;
+		src = targ->typeulong;
 	if (dst->kind == TYPEPOINTER)
-		dst = &typeulong;
+		dst = targ->typeulong;
 	if (dst->kind == TYPEVOID)
 		return NULL;
 	if (!(src->prop & PROPREAL) || !(dst->prop & PROPREAL))
@@ -534,8 +534,8 @@ mkfunc(struct decl *decl, char *name, struct type *t, struct scope *s)
 	for (p = t->func.params; p; p = p->next) {
 		if (!p->name)
 			error(&tok.loc, "parameter name omitted in definition of function '%s'", name);
-		pt = t->func.isprototype ? p->type : typepromote(p->type, -1);
-		emittype(pt);
+		pt = p->type;
+		emittype(p->type);
 		p->value = xmalloc(sizeof(*p->value));
 		functemp(f, p->value, pt->repr);
 		d = mkdecl(DECLOBJECT, p->type, p->qual, LINKNONE);
@@ -776,7 +776,7 @@ funcexpr(struct func *f, struct expr *e)
 		r = funcexpr(f, e->binary.r);
 		t = e->binary.l->type;
 		if (t->kind == TYPEPOINTER)
-			t = &typeulong;
+			t = targ->typeulong;
 		switch (e->op) {
 		case TMUL:
 			op = IMUL;

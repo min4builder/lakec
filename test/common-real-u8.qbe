@@ -8,5 +8,6 @@ function w $main() {
 	%.4 =w extub %.3
 	%.5 =w sub %.2, %.4
 	%.6 =w csgtw %.5, 0
-	ret %.6
+	%.7 =w extub %.6
+	ret %.7
 }

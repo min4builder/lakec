@@ -16,6 +16,7 @@ function w $main() {
 	storew %.11, %.4
 	%.12 =w sub 0, 1
 	%.13 =w cnew %.7, %.12
-	ret %.13
+	%.14 =w extub %.13
+	ret %.14
 }
 export data $s = align 4 { z 4 }

@@ -15,29 +15,26 @@
 	.prop = PROPOBJECT|PROPSCALAR|PROPARITH|PROPREAL|PROPFLOAT, \
 }
 
-struct type typevoid    = {.kind = TYPEVOID, .prop = PROPOBJECT, .incomplete = true};
+struct type typevoid = {.kind = TYPEVOID, .prop = PROPOBJECT, .incomplete = true};
 
-struct type typebool    = INTTYPE(TYPEBOOL, 1, &i8, false, 0);
+struct type typebool = INTTYPE(TYPEBOOL, 1, &i8, false, 0);
 
-struct type typechar    = INTTYPE(TYPECHAR, 1, &i8, true, PROPCHAR);
-struct type typeschar   = INTTYPE(TYPECHAR, 1, &i8, true, PROPCHAR);
-struct type typeuchar   = INTTYPE(TYPECHAR, 1, &i8, false, PROPCHAR);
+struct type typechar = INTTYPE(TYPECHAR, 1, &i8, true, PROPCHAR);
 
-struct type typeshort   = INTTYPE(TYPESHORT, 2, &i16, true, 0);
-struct type typeushort  = INTTYPE(TYPESHORT, 2, &i16, false, 0);
+struct type typei8   = INTTYPE(TYPECHAR, 1, &i8, true, 0);
+struct type typeu8   = INTTYPE(TYPECHAR, 1, &i8, false, 0);
 
-struct type typeint     = INTTYPE(TYPEINT, 4, &i32, true, 0);
-struct type typeuint    = INTTYPE(TYPEINT, 4, &i32, false, 0);
+struct type typei16  = INTTYPE(TYPESHORT, 2, &i16, true, 0);
+struct type typeu16  = INTTYPE(TYPESHORT, 2, &i16, false, 0);
 
-struct type typelong    = INTTYPE(TYPELONG, 8, &i64, true, 0);
-struct type typeulong   = INTTYPE(TYPELONG, 8, &i64, false, 0);
+struct type typei32  = INTTYPE(TYPEINT, 4, &i32, true, 0);
+struct type typeu32  = INTTYPE(TYPEINT, 4, &i32, false, 0);
 
-struct type typellong   = INTTYPE(TYPELLONG, 8, &i64, true, 0);
-struct type typeullong  = INTTYPE(TYPELLONG, 8, &i64, false, 0);
+struct type typei64  = INTTYPE(TYPELLONG, 8, &i64, true, 0);
+struct type typeu64  = INTTYPE(TYPELLONG, 8, &i64, false, 0);
 
-struct type typefloat   = FLTTYPE(TYPEFLOAT, 4, &f32);
-struct type typedouble  = FLTTYPE(TYPEDOUBLE, 8, &f64);
-struct type typeldouble = FLTTYPE(TYPELDOUBLE, 16, NULL);  // XXX: not supported by qbe
+struct type typef32  = FLTTYPE(TYPEFLOAT, 4, &f32);
+struct type typef64  = FLTTYPE(TYPEDOUBLE, 8, &f64);
 
 static struct type typevaliststruct = {
 	.kind = TYPESTRUCT, .size = 32, .align = 8,
@@ -118,7 +115,6 @@ typerank(struct type *t)
 bool
 typecompatible(struct type *t1, struct type *t2)
 {
-	struct type *tmp;
 	struct param *p1, *p2;
 	struct member *m1, *m2;
 
@@ -154,11 +150,6 @@ typecompatible(struct type *t1, struct type *t2)
 			return false;
 		return true;
 	case TYPEFUNC:
-		if (!t1->func.isprototype) {
-			if (!t2->func.isprototype)
-				return true;
-			tmp = t1, t1 = t2, t2 = tmp;
-		}
 		if (t1->func.isvararg != t2->func.isvararg)
 			return false;
 		if (!t2->func.paraminfo) {
@@ -169,8 +160,7 @@ typecompatible(struct type *t1, struct type *t2)
 			return true;
 		}
 		for (p1 = t1->func.params, p2 = t2->func.params; p1 && p2; p1 = p1->next, p2 = p2->next) {
-			tmp = t2->func.isprototype ? p2->type : typepromote(p2->type, -1);
-			if (!typecompatible(p1->type, tmp))
+			if (!typecompatible(p1->type, p2->type))
 				return false;
 		}
 		if (p1 || p2)
@@ -225,8 +215,7 @@ typesame(struct type *t1, struct type *t2)
 		return t1->array.length == t2->array.length
 			&& typesame(t1->base, t2->base);
 	case TYPEFUNC:
-		if (t1->func.isprototype != t2->func.isprototype ||
-		    t1->func.isvararg != t2->func.isvararg ||
+		if (t1->func.isvararg != t2->func.isvararg ||
 		    t1->func.isnoreturn != t2->func.isnoreturn ||
 		    t1->func.paraminfo != t2->func.paraminfo)
 			return false;
@@ -254,12 +243,12 @@ typecomposite(struct type *t1, struct type *t2)
 struct type *
 typepromote(struct type *t, unsigned width)
 {
-	if (t == &typefloat)
-		return &typedouble;
-	if (t->prop & PROPINT && (typerank(t) <= typerank(&typeint) || width <= typeint.size * 8)) {
+	if (t == &typef32)
+		return &typef64;
+	if (t->prop & PROPINT && (typerank(t) <= typerank(targ->typeint) || width <= targ->typeint->size * 8)) {
 		if (width == -1)
 			width = t->size * 8;
-		return width - t->basic.issigned < typeint.size * 8 ? &typeint : &typeuint;
+		return width - t->basic.issigned < targ->typeint->size * 8 ? targ->typeint : targ->typeuint;
 	}
 	return t;
 }
@@ -270,12 +259,10 @@ typecommonreal(struct type *t1, unsigned w1, struct type *t2, unsigned w2)
 	struct type *tmp;
 
 	assert(t1->prop & PROPREAL && t2->prop & PROPREAL);
-	if (t1 == &typeldouble || t2 == &typeldouble)
-		return &typeldouble;
-	if (t1 == &typedouble || t2 == &typedouble)
-		return &typedouble;
-	if (t1 == &typefloat || t2 == &typefloat)
-		return &typefloat;
+	if (t1 == &typef64 || t2 == &typef64)
+		return &typef64;
+	if (t1 == &typef32 || t2 == &typef32)
+		return &typef32;
 	t1 = typepromote(t1, w1);
 	t2 = typepromote(t2, w2);
 	if (t1 == t2)
@@ -291,10 +278,10 @@ typecommonreal(struct type *t1, unsigned w1, struct type *t2, unsigned w2)
 		return t1;
 	if (t1->size < t2->size)
 		return t2;
-	if (t2 == &typelong)
-		return &typeulong;
-	if (t2 == &typellong)
-		return &typeullong;
+	if (t2 == targ->typelong)
+		return targ->typeulong;
+	if (t2 == &typei64)
+		return &typeu64;
 	fatal("internal error; could not find common real type");
 }
 

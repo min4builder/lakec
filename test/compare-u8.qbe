@@ -7,5 +7,6 @@ function w $main() {
 	%.3 =w copy 256
 	%.4 =w extub %.3
 	%.5 =w csltw %.2, %.4
-	ret %.5
+	%.6 =w extub %.5
+	ret %.6
 }

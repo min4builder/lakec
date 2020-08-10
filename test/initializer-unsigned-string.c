@@ -1,1 +1,0 @@
-s []unsigned char = "abc";

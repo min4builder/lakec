@@ -1,1 +1,1 @@
-x float = __builtin_nanf("");
+x f32 = __builtin_nanf("");

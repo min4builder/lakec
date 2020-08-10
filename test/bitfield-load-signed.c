@@ -1,4 +1,4 @@
-s struct(_ : signed 4, x : signed 15, _ : signed 13);
+s struct(_ : -4, x : -15, _ : -13);
 
 f() void {
 	s.x;

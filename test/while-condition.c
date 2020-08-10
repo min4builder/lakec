@@ -1,5 +1,5 @@
 main() int {
-	auto x double = 1;
+	auto x f64 = 1;
 
 	while (x)
 		x /= 2;

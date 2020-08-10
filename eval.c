@@ -144,7 +144,7 @@ eval(struct expr *expr, enum evalkind kind)
 			other forms of constant expressions (6.6p10), and some
 			programs expect this functionality.
 			*/
-			if (expr->type->kind == TYPEPOINTER || expr->type->prop & PROPINT && expr->type->size == typelong.size)
+			if (expr->type->kind == TYPEPOINTER || expr->type->prop & PROPINT && expr->type->size == targ->typelong->size)
 				expr = l;
 		}
 		break;

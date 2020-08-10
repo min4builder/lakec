@@ -18,44 +18,33 @@ enum tokenkind {
 	TAUTO,
 	TBREAK,
 	TCASE,
-	TCHAR,
 	TCONST,
 	TCONTINUE,
 	TDEFAULT,
 	TDO,
-	TDOUBLE,
 	TELSE,
 	TENUM,
 	TEXTERN,
-	TFLOAT,
 	TFOR,
 	TGOTO,
 	TIF,
 	TINLINE,
-	TINT,
-	TLONG,
 	TREGISTER,
 	TRESTRICT,
 	TRETURN,
-	TSHORT,
-	TSIGNED,
 	TSIZEOF,
 	TSTATIC,
 	TSTRUCT,
 	TSWITCH,
 	TTYPEDEF,
 	TUNION,
-	TUNSIGNED,
 	TVOID,
 	TVOLATILE,
 	TWHILE,
 	T_ALIGNAS,
 	T_ALIGNOF,
 	T_ATOMIC,
-	T_BOOL,
-	T_COMPLEX,
 	T_GENERIC,
-	T_IMAGINARY,
 	T_NORETURN,
 	T_STATIC_ASSERT,
 	T_THREAD_LOCAL,
@@ -217,7 +206,7 @@ struct type {
 			uint64_t length;
 		} array;
 		struct {
-			_Bool isprototype, isvararg, isnoreturn, paraminfo;
+			_Bool isvararg, isnoreturn, paraminfo;
 			struct param *params;
 		} func;
 		struct {
@@ -421,19 +410,21 @@ struct param *mkparam(char *, struct type *, enum typequal);
 
 extern struct type typevoid;
 extern struct type typebool;
-extern struct type typechar, typeschar, typeuchar;
-extern struct type typeshort, typeushort;
-extern struct type typeint, typeuint;
-extern struct type typelong, typeulong;
-extern struct type typellong, typeullong;
-extern struct type typefloat, typedouble, typeldouble;
+extern struct type typechar;
+extern struct type typei8, typeu8;
+extern struct type typei16, typeu16;
+extern struct type typei32, typeu32;
+extern struct type typei64, typeu64;
+extern struct type typef32, typef64;
 extern struct type typevalist, typevalistptr;
 
 /* targ */
 
 struct target {
 	const char *name;
-	struct type *typewchar;
+	struct type *typerune;
+	struct type *typelong, *typeulong;
+	struct type *typeint, *typeuint;
 };
 
 extern struct target *targ;

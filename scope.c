@@ -27,11 +27,28 @@ scopeinit(void)
 		{"__builtin_va_end",     {.kind = DECLBUILTIN, .builtin = BUILTINVAEND}},
 		{"__builtin_va_list",    {.kind = DECLTYPE, .type = &typevalist}},
 		{"__builtin_va_start",   {.kind = DECLBUILTIN, .builtin = BUILTINVASTART}},
+		{"bool",   {.kind = DECLTYPE, .type = &typebool}},
+		{"char",   {.kind = DECLTYPE, .type = &typechar}},
+		{"f32",    {.kind = DECLTYPE, .type = &typef32}},
+		{"f64",    {.kind = DECLTYPE, .type = &typef64}},
+		{"i8",     {.kind = DECLTYPE, .type = &typei8}},
+		{"i16",    {.kind = DECLTYPE, .type = &typei16}},
+		{"i32",    {.kind = DECLTYPE, .type = &typei32}},
+		{"i64",    {.kind = DECLTYPE, .type = &typei64}},
+		{"u8",     {.kind = DECLTYPE, .type = &typeu8}},
+		{"u16",    {.kind = DECLTYPE, .type = &typeu16}},
+		{"u32",    {.kind = DECLTYPE, .type = &typeu32}},
+		{"u64",    {.kind = DECLTYPE, .type = &typeu64}},
 	};
 	struct builtin *b;
 
 	for (b = builtins; b < builtins + LEN(builtins); ++b)
 		scopeputdecl(&filescope, b->name, &b->decl);
+	scopeputdecl(&filescope, "rune", mkdecl(DECLTYPE, targ->typerune, LINKNONE, QUALNONE));
+	scopeputdecl(&filescope, "int", mkdecl(DECLTYPE, targ->typeint, LINKNONE, QUALNONE));
+	scopeputdecl(&filescope, "uint", mkdecl(DECLTYPE, targ->typeuint, LINKNONE, QUALNONE));
+	scopeputdecl(&filescope, "long", mkdecl(DECLTYPE, targ->typelong, LINKNONE, QUALNONE));
+	scopeputdecl(&filescope, "ulong", mkdecl(DECLTYPE, targ->typeulong, LINKNONE, QUALNONE));
 }
 
 struct scope *

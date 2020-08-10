@@ -1,8 +1,8 @@
 extern a = 25;
 a int;
 
-extern b = 26LL->[unsigned char];
-b unsigned char;
+extern b = 26->[u8];
+b u8;
 
 f(d **int) int {
 	auto e = *d;

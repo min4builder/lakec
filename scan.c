@@ -387,23 +387,12 @@ again:
 		nextchar(s);
 		return TCOMMA;
 	case 'L':
-	case 'U':
-	case 'u':
 		s->usebuf = true;
 		nextchar(s);
-		switch (s->chr) {
-		case '\'':
+		if (s->chr == '\'')
 			return charconst(s);
-		case '8':
-			if (s->buf.str[0] != 'u')
-				break;
-			nextchar(s);
-			if (s->chr != '"')
-				break;
-			/* fallthrough */
-		case '"':
+		else if (s->chr == '"')
 			return stringlit(s);
-		}
 		return ident(s);
 	case EOF:
 		return TEOF;

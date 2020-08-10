@@ -1,6 +1,6 @@
 x struct s (
 	s [5]char,
-	f float,
+	f f32,
 );
 
 f() void {

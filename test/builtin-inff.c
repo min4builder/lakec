@@ -1,1 +1,1 @@
-x float = __builtin_inff();
+x f32 = __builtin_inff();
