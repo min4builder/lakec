@@ -39,8 +39,6 @@ string arrays (`static char *[]`):
   the link command.
 - **`endfiles`**: Objects to pass to the linker at the end of the link
   command (including libc).
-- **`preprocesscmd`**: The preprocessor command, and any necessary flags
-  for the target system.
 - **`codegencmd`**: The QBE command, and possibly explicit target flags.
 - **`assemblecmd`**: The assembler command.
 - **`linkcmd`**: The linker command.

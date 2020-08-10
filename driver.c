@@ -20,16 +20,12 @@
 enum filetype {
 	NONE,   /* detect based on file extension */
 	ASM,    /* assembly source */
-	ASMPP,  /* assembly source requiring preprocessing */
 	C,      /* C source */
-	CHDR,   /* C header */
-	CPPOUT, /* preprocessed C source */
 	OBJ,    /* object file */
 	QBE,    /* QBE IL */
 };
 
 enum stage {
-	PREPROCESS,
 	COMPILE,
 	CODEGEN,
 	ASSEMBLE,
@@ -57,7 +53,6 @@ static struct {
 	bool verbose;
 } flags;
 static struct stageinfo stages[] = {
-	[PREPROCESS] = {.name = "preprocess"},
 	[COMPILE]    = {.name = "compile"},
 	[CODEGEN]    = {.name = "codegen"},
 	[ASSEMBLE]   = {.name = "assemble"},
@@ -90,16 +85,10 @@ detectfiletype(const char *name)
 		++dot;
 		if (strcmp(dot, "c") == 0)
 			return C;
-		if (strcmp(dot, "h") == 0)
-			return CHDR;
-		if (strcmp(dot, "i") == 0)
-			return CPPOUT;
 		if (strcmp(dot, "qbe") == 0)
 			return QBE;
 		if (strcmp(dot, "s") == 0)
 			return ASM;
-		if (strcmp(dot, "S") == 0)
-			return ASMPP;
 	}
 
 	return OBJ;
@@ -249,7 +238,7 @@ buildobj(struct input *input, char *output)
 		input->name = NULL;
 
 	npids = 0;
-	for (i = PREPROCESS, fd = -1; input->stages; ++i) {
+	for (i = COMPILE, fd = -1; input->stages; ++i) {
 		if (!(input->stages & 1<<i))
 			continue;
 		input->stages &= ~(1<<i);
@@ -378,7 +367,6 @@ main(int argc, char *argv[])
 
 	argv0 = progname(argv[0], "cproc");
 
-	arrayaddbuf(&stages[PREPROCESS].cmd, preprocesscmd, sizeof(preprocesscmd));
 	arrayaddptr(&stages[COMPILE].cmd, compilecommand(argv[0]));
 	arrayaddbuf(&stages[CODEGEN].cmd, codegencmd, sizeof(codegencmd));
 	arrayaddbuf(&stages[ASSEMBLE].cmd, assemblecmd, sizeof(assemblecmd));
@@ -409,13 +397,10 @@ main(int argc, char *argv[])
 			input->lib = false;
 			input->filetype = filetype == NONE && arg[1] ? detectfiletype(arg) : filetype;
 			switch (input->filetype) {
-			case ASM:    input->stages =                                     1<<ASSEMBLE|1<<LINK; break;
-			case ASMPP:  input->stages = 1<<PREPROCESS|                      1<<ASSEMBLE|1<<LINK; break;
-			case C:      input->stages = 1<<PREPROCESS|1<<COMPILE|1<<CODEGEN|1<<ASSEMBLE|1<<LINK; break;
-			case CHDR:   input->stages = 1<<PREPROCESS                                          ; break;
-			case CPPOUT: input->stages =               1<<COMPILE|1<<CODEGEN|1<<ASSEMBLE|1<<LINK; break;
-			case QBE:    input->stages =                          1<<CODEGEN|1<<ASSEMBLE|1<<LINK; break;
-			case OBJ:    input->stages =                                                 1<<LINK; break;
+			case ASM:    input->stages =                       1<<ASSEMBLE|1<<LINK; break;
+			case C:      input->stages = 1<<COMPILE|1<<CODEGEN|1<<ASSEMBLE|1<<LINK; break;
+			case QBE:    input->stages =            1<<CODEGEN|1<<ASSEMBLE|1<<LINK; break;
+			case OBJ:    input->stages =                                   1<<LINK; break;
 			default:     usage("reading from standard input requires -x");
 			}
 			continue;
@@ -430,14 +415,10 @@ main(int argc, char *argv[])
 		} else if (strcmp(arg, "-include") == 0 || strcmp(arg, "-idirafter") == 0 || strcmp(arg, "-isystem") == 0) {
 			if (!--argc)
 				usage(NULL);
-			arrayaddptr(&stages[PREPROCESS].cmd, arg);
-			arrayaddptr(&stages[PREPROCESS].cmd, *++argv);
+			arrayaddptr(&stages[COMPILE].cmd, arg);
+			arrayaddptr(&stages[COMPILE].cmd, *++argv);
 		} else if (strcmp(arg, "-pipe") == 0) {
 			/* ignore */
-		} else if (strncmp(arg, "-std=", 5) == 0) {
-			/* pass through to the preprocessor, it may
-			 * affect its default definitions */
-			arrayaddptr(&stages[PREPROCESS].cmd, arg);
 		} else if (strcmp(arg, "-pedantic") == 0) {
 			/* ignore */
 		} else {
@@ -448,18 +429,19 @@ main(int argc, char *argv[])
 				last = ASSEMBLE;
 				break;
 			case 'D':
-				arrayaddptr(&stages[PREPROCESS].cmd, "-D");
-				arrayaddptr(&stages[PREPROCESS].cmd, nextarg(&argv));
+				arrayaddptr(&stages[COMPILE].cmd, "-D");
+				arrayaddptr(&stages[COMPILE].cmd, nextarg(&argv));
 				break;
 			case 'E':
-				last = PREPROCESS;
+				arrayaddptr(&stages[COMPILE].cmd, "-E");
+				last = COMPILE;
 				break;
 			case 'g':
 				/* ignore */
 				break;
 			case 'I':
-				arrayaddptr(&stages[PREPROCESS].cmd, "-I");
-				arrayaddptr(&stages[PREPROCESS].cmd, nextarg(&argv));
+				arrayaddptr(&stages[COMPILE].cmd, "-I");
+				arrayaddptr(&stages[COMPILE].cmd, nextarg(&argv));
 				break;
 			case 'L':
 				arrayaddptr(&stages[LINK].cmd, "-L");
@@ -471,21 +453,6 @@ main(int argc, char *argv[])
 				input->lib = true;
 				input->filetype = OBJ;
 				input->stages = 1<<LINK;
-				break;
-			case 'M':
-				if (strcmp(arg, "-M") == 0 || strcmp(arg, "-MM") == 0) {
-					arrayaddptr(&stages[PREPROCESS].cmd, arg);
-					last = PREPROCESS;
-				} else if (strcmp(arg, "-MD") == 0 || strcmp(arg, "-MMD") == 0) {
-					arrayaddptr(&stages[PREPROCESS].cmd, arg);
-				} else if (strcmp(arg, "-MT") == 0 || strcmp(arg, "-MF") == 0) {
-					if (!--argc)
-						usage(NULL);
-					arrayaddptr(&stages[PREPROCESS].cmd, arg);
-					arrayaddptr(&stages[PREPROCESS].cmd, *++argv);
-				} else {
-					usage(NULL);
-				}
 				break;
 			case 'O':
 				/* ignore */
@@ -503,8 +470,8 @@ main(int argc, char *argv[])
 				arrayaddptr(&stages[LINK].cmd, "-s");
 				break;
 			case 'U':
-				arrayaddptr(&stages[PREPROCESS].cmd, "-U");
-				arrayaddptr(&stages[PREPROCESS].cmd, nextarg(&argv));
+				arrayaddptr(&stages[COMPILE].cmd, "-U");
+				arrayaddptr(&stages[COMPILE].cmd, nextarg(&argv));
 				break;
 			case 'v':
 				flags.verbose = true;
@@ -512,7 +479,6 @@ main(int argc, char *argv[])
 			case 'W':
 				if (arg[2] && arg[3] == ',') {
 					switch (arg[2]) {
-					case 'p': cmd = &stages[PREPROCESS].cmd; break;
 					case 'a': cmd = &stages[ASSEMBLE].cmd; break;
 					case 'l': cmd = &stages[LINK].cmd; break;
 					default: usage(NULL);
@@ -533,16 +499,10 @@ main(int argc, char *argv[])
 					filetype = NONE;
 				else if (strcmp(arg, "c") == 0)
 					filetype = C;
-				else if (strcmp(arg, "c-header") == 0)
-					filetype = CHDR;
-				else if (strcmp(arg, "cpp-output") == 0)
-					filetype = CPPOUT;
 				else if (strcmp(arg, "qbe") == 0)
 					filetype = QBE;
 				else if (strcmp(arg, "assembler") == 0)
 					filetype = ASM;
-				else if (strcmp(arg, "assembler-with-cpp") == 0)
-					filetype = ASMPP;
 				else
 					usage("unknown language '%s'", arg);
 				break;
