@@ -57,6 +57,9 @@ C, with:
       uint/int - natural type (unsigned/int)
       ulong/long - pointer type (size_t/ssize_t/uintptr_t/intptr_t/ptrdiff_t)
 
+- module system (#include DONE, missing header generation, import syntax etc.)
+
+      #include "libp.h"
+
 - easier res management (copy, move & drop)
-- module system
 - good language extension system (decls, exprs, attrs)

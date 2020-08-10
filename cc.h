@@ -383,6 +383,7 @@ enum ppflags {
 
 extern enum ppflags ppflags;
 
+void ppdir(char *);
 void ppinit(void);
 
 void next(void);

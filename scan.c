@@ -441,9 +441,13 @@ scanopen(void)
 static void
 scanclose(void)
 {
-	fclose(scanner->file);
-	free(scanner->buf.str);
-	free(scanner);
+	struct scanner *s;
+
+	s = scanner;
+	scanner = s->next;
+	fclose(s->file);
+	free(s->buf.str);
+	free(s);
 }
 
 void
@@ -456,7 +460,6 @@ scan(struct token *t)
 		if (t->kind != TEOF || !scanner->next)
 			break;
 		scanclose();
-		scanner = scanner->next;
 		scanopen();
 	}
 	if (scanner->usebuf) {

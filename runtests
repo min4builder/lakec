@@ -17,7 +17,7 @@ for test ; do
 		set -- $CCQBE -o "$got" "$test"
 	elif [ -f "$name.pp" ] ; then
 		want=$name.pp
-		set -- $CCQBE -E -o "$got" "$test"
+		set -- $CCQBE -E -I test/ -o "$got" "$test"
 	else
 		echo "invalid test '$test'" >&2
 		set -- false

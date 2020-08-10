@@ -10,7 +10,7 @@
 static noreturn void
 usage(void)
 {
-	fprintf(stderr, "usage: %s [input]\n", argv0);
+	fprintf(stderr, "usage: %s [-E] [-t target] [-o out] [input]\n", argv0);
 	exit(2);
 }
 
@@ -24,6 +24,9 @@ main(int argc, char *argv[])
 	ARGBEGIN {
 	case 'E':
 		pponly = true;
+		break;
+	case 'I':
+		ppdir(EARGF(usage()));
 		break;
 	case 't':
 		target = EARGF(usage());

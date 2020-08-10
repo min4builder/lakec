@@ -50,10 +50,20 @@ struct frame {
 
 enum ppflags ppflags;
 
+static struct array dirs;
 static struct array ctx;
 static struct map *macros;
 /* number of macros currently undergoing expansion */
 static size_t macrodepth;
+
+void
+ppdir(char *name)
+{
+	char **d;
+
+	d = arrayadd(&dirs, sizeof(*d));
+	*d = name;
+}
 
 void
 ppinit(void)
@@ -201,6 +211,31 @@ again:
 }
 
 static void
+include(void)
+{
+	char fullname[1024];
+	FILE *file;
+	char *name;
+	char **dir;
+	int i;
+
+	name = tokencheck(&tok, TSTRINGLIT, "after #include");
+	name++;
+	for (i = 0; name[i] != '"'; i++) ;
+	name[i] = '\0';
+	arrayforeach (&dirs, dir) {
+		snprintf(fullname, sizeof(fullname), "%s/%s", *dir, name);
+		file = fopen(fullname, "r");
+		if (file) {
+			scanfrom(name, file);
+			free(name);
+			return;
+		}
+	}
+	error(&tok.loc, "include not found");
+}
+
+static void
 define(void)
 {
 	struct token *t;
@@ -310,35 +345,23 @@ directive(void)
 	oldflags = ppflags;
 	ppflags |= PPNEWLINE;
 	name = tokencheck(&tok, TIDENT, "or newline after '#'");
-	if (strcmp(name, "if") == 0) {
-		error(&tok.loc, "#if directive is not implemented");
-	} else if (strcmp(name, "ifdef") == 0) {
-		error(&tok.loc, "#ifdef directive is not implemented");
-	} else if (strcmp(name, "ifndef") == 0) {
-		error(&tok.loc, "#ifndef directive is not implemented");
-	} else if (strcmp(name, "elif") == 0) {
-		error(&tok.loc, "#elif directive is not implemented");
-	} else if (strcmp(name, "endif") == 0) {
-		error(&tok.loc, "#endif directive is not implemented");
-	} else if (strcmp(name, "include") == 0) {
-		error(&tok.loc, "#include directive is not implemented");
+	if (strcmp(name, "include") == 0) {
+		scan(&tok);
+		include();
 	} else if (strcmp(name, "define") == 0) {
 		scan(&tok);
 		define();
+		tokencheck(&tok, TNEWLINE, "after define");
 	} else if (strcmp(name, "undef") == 0) {
 		scan(&tok);
 		undef();
+		tokencheck(&tok, TNEWLINE, "after undef");
 	} else if (strcmp(name, "line") == 0) {
 		error(&tok.loc, "#line directive is not implemented");
-	} else if (strcmp(name, "error") == 0) {
-		error(&tok.loc, "#error directive is not implemented");
-	} else if (strcmp(name, "pragma") == 0) {
-		error(&tok.loc, "#pragma directive is not implemented");
 	} else {
 		error(&tok.loc, "invalid preprocessor directive #%s", name);
 	}
 	free(name);
-	tokencheck(&tok, TNEWLINE, "after preprocessing directive");
 	ppflags = oldflags;
 }
 
