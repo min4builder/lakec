@@ -576,9 +576,9 @@ next(void)
 
 	do t = rawnext();
 	while (expand(t) || t->kind == TNEWLINE && !(ppflags & PPNEWLINE));
+	if (t->kind == TIDENT)
+		keyword(t);
 	tok = *t;
-	if (tok.kind == TIDENT)
-		keyword(&tok);
 }
 
 bool
