@@ -1,3 +1,3 @@
-main() int {
+pub main() int {
 	return 0;
 }

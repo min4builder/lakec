@@ -15,4 +15,4 @@ function w $main() {
 	%.11 =w extub %.10
 	ret %.11
 }
-export data $s = align 4 { z 4 }
+data $s = align 4 { z 4 }

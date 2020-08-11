@@ -1,5 +1,4 @@
 data $.Lc.2 = align 1 { b 0, }
-export
 function $f() {
 @start.1
 @body.2

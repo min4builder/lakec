@@ -1,1 +1,1 @@
-extern x int = 1;
+pub x int = 1;

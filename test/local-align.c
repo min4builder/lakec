@@ -1,3 +1,3 @@
 f() void {
-	auto x _Alignas(16) [4]char;
+	auto x alignas(16) [4]char;
 }

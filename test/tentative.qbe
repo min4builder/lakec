@@ -1,1 +1,1 @@
-export data $x = align 4 { w 5, }
+data $x = align 4 { w 5, }

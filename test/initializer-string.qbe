@@ -1,5 +1,4 @@
-export data $x = align 1 { b "hello", z 1, }
-export
+data $x = align 1 { b "hello", z 1, }
 function $f() {
 @start.1
 	%.1 =l alloc4 6

@@ -1,4 +1,3 @@
-export
 function $f() {
 @start.1
 @body.2
@@ -7,4 +6,4 @@ function $f() {
 	%.3 =l add $x, %.2
 	ret
 }
-export data $x = align 4 { z 8 }
+data $x = align 4 { z 8 }

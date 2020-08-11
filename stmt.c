@@ -281,7 +281,7 @@ stmt(struct func *f, struct scope *s)
 		expect(TSEMICOLON, "after 'return' statement");
 		break;
 
-	case T__ASM__:
+	case TASM:
 		error(&tok.loc, "inline assembly is not yet supported");
 	}
 }

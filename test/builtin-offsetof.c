@@ -6,4 +6,4 @@ struct s (
 		),
 	),
 );
-x = __builtin_offsetof(struct s, a[2].b.c);
+x = offsetof(struct s, a[2].b.c);

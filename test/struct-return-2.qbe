@@ -1,5 +1,4 @@
 type :.1 = { w, w, }
-export
 function w $f() {
 @start.1
 @body.2

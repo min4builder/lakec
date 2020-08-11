@@ -1,5 +1,5 @@
 s struct(a : 2);
 
-main() int {
+pub main() int {
 	return -1 > s.a;
 }

@@ -1,5 +1,4 @@
-export data $"y" = align 4 { w 2, }
-export
+data $"y" = align 4 { w 2, }
 function $"g"() {
 @start.1
 @body.2

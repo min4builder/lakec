@@ -1,3 +1,3 @@
 f() void {
-	auto x *int = __builtin_alloca(32);
+	auto x *int = alloca(32);
 }

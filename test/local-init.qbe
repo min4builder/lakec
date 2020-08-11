@@ -1,4 +1,3 @@
-export
 function $f() {
 @start.1
 	%.1 =l alloc8 32

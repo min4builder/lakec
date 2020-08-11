@@ -873,7 +873,7 @@ unaryexpr(struct scope *s)
 		e = mkbinaryexpr(&tok.loc, TEQL, e, mkconstexpr(targ->typeint, 0));
 		break;
 	case TSIZEOF:
-	case T_ALIGNOF:
+	case TALIGNOF:
 		next();
 		if (consume(TLPAREN)) {
 			t = NULL;

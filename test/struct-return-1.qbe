@@ -1,5 +1,4 @@
 type :s.1 = { w, }
-export
 function :s.1 $f() {
 @start.1
 	%.1 =l alloc4 4

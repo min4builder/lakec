@@ -1,5 +1,4 @@
 type :a.1 = { w, w, }
-export
 function :a.1 $_Zpl1aS_(:a.1 %.1, :a.1 %.2) {
 @start.1
 	%.3 =l alloc4 8
@@ -32,7 +31,6 @@ function :a.1 $_Zpl1aS_(:a.1 %.1, :a.1 %.2) {
 	storew %.27, %.16
 	ret %.3
 }
-export
 function $f() {
 @start.3
 	%.1 =l alloc4 8

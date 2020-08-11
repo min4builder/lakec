@@ -20,11 +20,10 @@ enum storageclass {
 	SCNONE,
 
 	SCTYPEDEF     = 1<<1,
-	SCEXTERN      = 1<<2,
+	SCPUBLIC      = 1<<2,
 	SCSTATIC      = 1<<3,
 	SCAUTO        = 1<<4,
 	SCREGISTER    = 1<<5,
-	SCTHREADLOCAL = 1<<6,
 };
 
 enum funcspec {
@@ -65,27 +64,19 @@ mkdecl(enum declkind k, struct type *t, enum typequal tq, enum linkage linkage)
 static int
 storageclass(enum storageclass *sc)
 {
-	enum storageclass allowed, new;
+	enum storageclass new;
 
 	switch (tok.kind) {
-	case TTYPEDEF:       new = SCTYPEDEF;     break;
-	case TEXTERN:        new = SCEXTERN;      break;
-	case TSTATIC:        new = SCSTATIC;      break;
-	case T_THREAD_LOCAL: new = SCTHREADLOCAL; break;
-	case TAUTO:          new = SCAUTO;        break;
-	case TREGISTER:      new = SCREGISTER;    break;
+	case TTYPEDEF:  new = SCTYPEDEF;     break;
+	case TPUB:      new = SCPUBLIC;      break;
+	case TSTATIC:   new = SCSTATIC;      break;
+	case TAUTO:     new = SCAUTO;        break;
+	case TREGISTER: new = SCREGISTER;    break;
 	default: return 0;
 	}
 	if (!sc)
 		error(&tok.loc, "storage class not allowed in this declaration");
-	switch (*sc) {
-	case SCNONE:        allowed = ~SCNONE;           break;
-	case SCTHREADLOCAL: allowed = SCSTATIC|SCEXTERN; break;
-	case SCSTATIC:
-	case SCEXTERN:      allowed = SCTHREADLOCAL;     break;
-	default:            allowed = SCNONE;            break;
-	}
-	if (new & ~allowed)
+	if (new && *sc)
 		error(&tok.loc, "invalid combination of storage class specifiers");
 	*sc |= new;
 	next();
@@ -101,7 +92,6 @@ typequal(enum typequal *tq)
 	case TCONST:    *tq |= QUALCONST;    break;
 	case TVOLATILE: *tq |= QUALVOLATILE; break;
 	case TRESTRICT: *tq |= QUALRESTRICT; break;
-	case T_ATOMIC: error(&tok.loc, "_Atomic type qualifier is not yet supported");
 	default: return 0;
 	}
 	next();
@@ -116,8 +106,8 @@ funcspec(enum funcspec *fs)
 	enum funcspec new;
 
 	switch (tok.kind) {
-	case TINLINE:    new = FUNCINLINE;   break;
-	case T_NORETURN: new = FUNCNORETURN; break;
+	case TINLINE:   new = FUNCINLINE;   break;
+	case TNORETURN: new = FUNCNORETURN; break;
 	default: return 0;
 	}
 	if (!fs)
@@ -276,9 +266,9 @@ decltype(struct scope *s, int *align)
 			*t = d->type;
 			next();
 			goto done;
-		case T__TYPEOF__:
+		case TTYPEOF:
 			next();
-			expect(TLPAREN, "after '__typeof__'");
+			expect(TLPAREN, "after 'typeof'");
 			*t = typename(s, tq);
 			if (!*t) {
 				e = expr(s);
@@ -288,7 +278,7 @@ decltype(struct scope *s, int *align)
 				*tq |= e->qual;
 				delexpr(e);
 			}
-			expect(TRPAREN, "to close '__typeof__'");
+			expect(TRPAREN, "to close 'typeof'");
 			goto done;
 		case TMUL:
 			next();
@@ -343,11 +333,11 @@ decltype(struct scope *s, int *align)
 			break;
 
 		/* 6.7.5 Alignment specifier */
-		case T_ALIGNAS:
+		case TALIGNAS:
 			if (!align)
 				error(&tok.loc, "alignment specifier not allowed in this declaration");
 			next();
-			expect(TLPAREN, "after '_Alignas'");
+			expect(TLPAREN, "after 'alignas'");
 			other = typename(s, NULL);
 			if (other) {
 				*align = other->align;
@@ -357,7 +347,7 @@ decltype(struct scope *s, int *align)
 					error(&tok.loc, "invalid alignment: %d", i);
 				*align = (int)i;
 			}
-			expect(TRPAREN, "to close '_Alignas' specifier");
+			expect(TRPAREN, "to close 'alignas' specifier");
 			break;
 
 		default:
@@ -700,11 +690,11 @@ typename(struct scope *s, enum typequal *tq)
 static enum linkage
 getlinkage(enum declkind kind, enum storageclass sc, struct decl *prior, bool filescope)
 {
-	if (sc & SCSTATIC)
+	if (sc & SCPUBLIC)
+		return LINKEXTERN;
+	if (sc & SCSTATIC || kind != DECLFUNC)
 		return filescope ? LINKINTERN : LINKNONE;
-	if (sc & SCEXTERN || kind == DECLFUNC)
-		return prior ? prior->linkage : LINKEXTERN;
-	return filescope ? LINKEXTERN : LINKNONE;
+	return prior ? prior->linkage : LINKFUNC;
 }
 
 static struct decl *
@@ -719,8 +709,11 @@ declcommon(struct scope *s, enum declkind kind, char *name, char *asmname, struc
 		if (prior->linkage == LINKNONE)
 			error(&tok.loc, "%s '%s' with no linkage redeclared", kindstr, name);
 		linkage = getlinkage(kind, sc, prior, s == &filescope);
-		if (prior->linkage != linkage)
-			error(&tok.loc, "%s '%s' redeclared with different linkage", kindstr, name);
+		if (prior->linkage != linkage) {
+			if (prior->linkage != LINKFUNC)
+				error(&tok.loc, "%s '%s' redeclared with different linkage", kindstr, name);
+			prior->linkage = linkage;
+		}
 		if (!typecompatible(t, prior->type) || tq != prior->qual)
 			error(&tok.loc, "%s '%s' redeclared with incompatible type", kindstr, name);
 		if (asmname && strcmp(globalname(prior->value), asmname) != 0)
@@ -738,8 +731,11 @@ declcommon(struct scope *s, enum declkind kind, char *name, char *asmname, struc
 		if (prior && prior->linkage != LINKNONE) {
 			if (prior->kind != kind)
 				error(&tok.loc, "'%s' redeclared with different kind", name);
-			if (prior->linkage != linkage)
-				error(&tok.loc, "%s '%s' redeclared with different linkage", kindstr, name);
+			if (prior->linkage != linkage) {
+				if (prior->linkage != LINKFUNC)
+					error(&tok.loc, "%s '%s' redeclared with different linkage", kindstr, name);
+				prior->linkage = linkage;
+			}
 			if (!typecompatible(t, prior->type) || tq != prior->qual)
 				error(&tok.loc, "%s '%s' redeclared with incompatible type", kindstr, name);
 			priorname = globalname(prior->value);
@@ -763,9 +759,9 @@ staticassert(struct scope *s)
 	struct expr *e;
 	uint64_t c;
 
-	if (!consume(T_STATIC_ASSERT))
+	if (!consume(TSTATIC_ASSERT))
 		return false;
-	expect(TLPAREN, "after _Static_assert");
+	expect(TLPAREN, "after static_assert");
 	c = intconstexpr(s, true);
 	if (consume(TCOMMA)) {
 		e = assignexpr(s);
@@ -805,23 +801,18 @@ decl(struct scope *s, struct func *f, bool instmt)
 	qt = declaration(s, &sc, &fs, &db, &align, instmt);
 	if (!(qt.type || db.next != &db))
 		return false;
-	if (f) {
-		if (sc == SCTHREADLOCAL)
-			error(&tok.loc, "block scope declaration containing '_Thread_local' must contain 'static' or 'extern'");
-	} else {
+	if (!f) {
 		/* 6.9p2 */
 		if (sc & SCAUTO)
 			error(&tok.loc, "external declaration must not contain 'auto'");
 		if (sc & SCREGISTER)
 			error(&tok.loc, "external declaration must not contain 'register'");
 	}
-	if (sc & SCTHREADLOCAL)
-		error(&tok.loc, "'_Thread_local' is not yet supported");
 	t = qt.type;
 	tq = qt.qual;
 	kind = sc & SCTYPEDEF ? DECLTYPE : t && t->kind == TYPEFUNC ? DECLFUNC : DECLOBJECT;
-	if (consume(T__ASM__)) {
-		expect(TLPAREN, "after __asm__");
+	if (consume(TASM)) {
+		expect(TLPAREN, "after asm");
 		asmname = expect(TSTRINGLIT, "for assembler name");
 		expect(TRPAREN, "after assembler name");
 		allowfunc = 0;
@@ -880,7 +871,7 @@ decl(struct scope *s, struct func *f, bool instmt)
 				d->defined = true;
 				if (d->tentative.next)
 					listremove(&d->tentative);
-			} else if (!(sc & SCEXTERN) && !d->defined && !d->tentative.next) {
+			} else if (!(sc & SCPUBLIC) && !d->defined && !d->tentative.next) {
 				listinsert(tentativedefns.prev, &d->tentative);
 			}
 			break;
@@ -888,15 +879,17 @@ decl(struct scope *s, struct func *f, bool instmt)
 			if (align)
 				error(&tok.loc, "function '%s' declared with alignment specifier", name);
 			t->func.isnoreturn |= fs & FUNCNORETURN;
-			if (f && sc && sc != SCEXTERN)  /* 6.7.1p7 */
-				error(&tok.loc, "function '%s' with block scope may only have storage class 'extern'", name);
+			if (f && sc && sc != SCPUBLIC)  /* 6.7.1p7 */
+				error(&tok.loc, "function '%s' with block scope may only have storage class 'pub'", name);
 			d = declcommon(s, kind, name, asmname, t, tq, sc, prior);
-			d->inlinedefn = d->linkage == LINKEXTERN && fs & FUNCINLINE && !(sc & SCEXTERN) && (!prior || prior->inlinedefn);
+			d->inlinedefn = d->linkage == LINKEXTERN && fs & FUNCINLINE && !(sc & SCPUBLIC) && (!prior || prior->inlinedefn);
 			if (tok.kind == TLBRACE) {
 				if (!allowfunc)
 					error(&tok.loc, "function definition not allowed");
 				if (d->defined)
 					error(&tok.loc, "function '%s' redefined", name);
+				if (d->linkage == LINKFUNC)
+					d->linkage = LINKINTERN;
 				s = mkscope(&filescope);
 				f = mkfunc(d, name, t, s);
 				stmt(f, s);

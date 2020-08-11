@@ -17,32 +17,6 @@ C, with:
       auto y = x->[f32];
       static seventyhundred = 7000.0f;
 
-- type-safe & lw generics (half-done, no real syntax)
-
-      #define Vec(T) struct(len, cap, size ulong, vec *T)
-      a Vec(int) = (0, 0, sizeof[int], 0);
-      #define vecnew(T) (vecnew_(sizeof[T])->[Vec(T)])
-      vecnew_(size int) Vec(void) {
-          return [Vec(void)](0, 0, size, 0);
-      }
-
-- operator overloading (working, with C++ mangling, nice syntax)
-
-      .<<(f *FILE, i int) void
-      {
-          fprintf(f, "%d", i);
-      }
-      stdout << 32;
-
-- new decl syntax (postfix and cast DONE, missing init, compound literals, etc.)
-
-      a *[32]int = &[[32]int](0);
-      struct a (x : 3, _ : 0, y : -4, a, b int);
-      e struct a = (2, 4);
-      b = a->[*int];
-      c = sizeof(b);
-      d = sizeof[int];
-
 - new types
 
       char - character (u8)
@@ -57,9 +31,45 @@ C, with:
       uint/int - natural type (unsigned/int)
       ulong/long - pointer type (size_t/ssize_t/uintptr_t/intptr_t/ptrdiff_t)
 
-- module system (#include DONE, missing header generation, import syntax etc.)
+- operator overloading (working, with C++ mangling, nice syntax)
+
+      .<<(f *FILE, i int) void
+      {
+          fprintf(f, "%d", i);
+      }
+      stdout << 32;
+
+- module system (#include, static by default DONE, missing import syntax)
 
       #include "libp.h"
+      f() int;
+      g() int {
+          return f();
+      }
+      pub f() int {
+          return 3;
+      }
 
+- new decl syntax (postfix and cast DONE, missing init, compound literals, etc.)
+
+      a *[32]int = &[[32]int](0);
+      struct a (x : 3, _ : 0, y : -4, a, b int);
+      e struct a = (2, 4);
+      b = a->[*int];
+      c = sizeof(b);
+      d = sizeof[int];
+
+- type-safe & lw generics (half-done, no real syntax)
+
+      #define Vec(T) struct(len, cap, size ulong, vec *T)
+      a Vec(int) = (0, 0, sizeof[int], 0);
+      #define vecnew(T) (vecnew_(sizeof[T])->[Vec(T)])
+      vecnew_(size int) Vec(void) {
+          return [Vec(void)](0, 0, size, 0);
+      }
+
+- easier error handling (result, switch/continue)
 - easier res management (copy, move & drop)
-- good language extension system (decls, exprs, attrs)
+- good language extension system (macros, decls, attrs)
+- good standard library (plan 9-inspired, with threading, graphics, etc.)
+

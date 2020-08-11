@@ -1,4 +1,4 @@
-main() int {
+pub main() int {
 	auto x f64 = 1;
 
 	while (x)

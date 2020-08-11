@@ -1,1 +1,1 @@
-export data $s = align 1 { b "hell", }
+data $s = align 1 { b "hell", }

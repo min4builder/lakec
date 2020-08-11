@@ -1,1 +1,1 @@
-x _Alignas(int) [4]char;
+x alignas(int) [4]char;

@@ -1,6 +1,5 @@
-export data $a = align 4 { w 25, }
-export data $b = align 1 { b 26, }
-export
+data $a = align 4 { w 25, }
+data $b = align 1 { b 26, }
 function w $f(l %.1) {
 @start.1
 	%.2 =l alloc8 8
@@ -15,4 +14,4 @@ function w $f(l %.1) {
 	%.8 =w loadsw %.7
 	ret %.8
 }
-export data $c = align 8 { l $f, }
+data $c = align 8 { l $f, }

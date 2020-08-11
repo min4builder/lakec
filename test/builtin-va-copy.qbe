@@ -1,6 +1,5 @@
 data $.La.2 = align 8 { z 32 }
 data $.Lb.3 = align 8 { z 32 }
-export
 function $f() {
 @start.1
 @body.2

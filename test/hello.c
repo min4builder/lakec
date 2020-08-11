@@ -1,5 +1,5 @@
 puts(_ *const char) int;
-main() int {
+pub main() int {
 	puts("hello");
 	return 0;
 }

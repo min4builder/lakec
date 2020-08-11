@@ -4,3 +4,8 @@ function $f() {
 @body.2
 	ret
 }
+function $g() {
+@start.3
+@body.4
+	ret
+}

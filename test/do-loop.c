@@ -1,4 +1,4 @@
-main() int {
+pub main() int {
 	auto x, y = 2, 0;
 	do {
 		if (x == 1)

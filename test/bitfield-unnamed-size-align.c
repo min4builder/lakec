@@ -7,6 +7,6 @@ union u (
 	c char,
 );
 s1 = sizeof[struct s];
-s2 = _Alignof[struct s];
+s2 = alignof[struct s];
 u1 = sizeof[union u];
-u2 = _Alignof[union u];
+u2 = alignof[union u];

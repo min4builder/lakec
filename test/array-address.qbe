@@ -1,2 +1,2 @@
-export data $y = align 8 { l 8, }
-export data $x = align 4 { z 8 }
+data $y = align 8 { l 8, }
+data $x = align 4 { z 8 }
