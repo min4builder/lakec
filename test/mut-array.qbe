@@ -1,0 +1,12 @@
+function $f(l %.1) {
+@start.1
+	%.2 =l alloc8 8
+	storel %.1, %.2
+@body.2
+	%.3 =l loadl %.2
+	%.4 =l extsw 0
+	%.5 =l mul %.4, 4
+	%.6 =l add %.3, %.5
+	storew 0, %.6
+	ret
+}

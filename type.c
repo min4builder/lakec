@@ -48,6 +48,10 @@ struct type typevalistptr = {
 	.kind = TYPEPOINTER, .size = 8, .align = 8, .repr = &i64, .base = &typevaliststruct,
 	.prop = PROPOBJECT|PROPDERIVED|PROPSCALAR,
 };
+struct type typevalistmutptr = {
+	.kind = TYPEPOINTER, .size = 8, .align = 8, .repr = &i64, .base = &typevaliststruct,
+	.qual = QUALMUT, .prop = PROPOBJECT|PROPDERIVED|PROPSCALAR,
+};
 
 struct type *
 mktype(enum typekind kind, enum typeprop prop)
@@ -167,7 +171,7 @@ typecompatible(struct type *t1, struct type *t2)
 			return false;
 		goto derived;
 	derived:
-		return (t1->qual & t2->qual) == t1->qual && typecompatible(t1->base, t2->base);
+		return t1->qual == t2->qual && typecompatible(t1->base, t2->base);
 	}
 	return false;
 }

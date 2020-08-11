@@ -282,8 +282,8 @@ funcstore(struct func *f, struct type *t, enum typequal tq, struct lvalue lval, 
 
 	if (tq & QUALVOLATILE)
 		error(&tok.loc, "volatile store is not yet supported");
-	if (tq & QUALCONST)
-		error(&tok.loc, "cannot store to 'const' object");
+	if (!(tq & QUALMUT))
+		error(&tok.loc, "cannot store to immutable object");
 	tp = t->prop;
 	assert(!lval.bits.before && !lval.bits.after || tp & PROPINT);
 	r = v;
@@ -546,12 +546,12 @@ mkfunc(struct decl *decl, char *name, struct type *t, struct scope *s)
 		} else {
 			v = typecompatible(p->type, pt) ? p->value : convert(f, pt, p->type, p->value);
 			funcinit(f, d, NULL);
-			funcstore(f, p->type, QUALNONE, (struct lvalue){d->value}, v);
+			funcstore(f, p->type, QUALMUT, (struct lvalue){d->value}, v);
 		}
 		scopeputdecl(s, p->name, d);
 	}
 
-	t = mkarraytype(&typechar, QUALCONST, strlen(name) + 1);
+	t = mkarraytype(&typechar, QUALNONE, strlen(name) + 1);
 	d = mkdecl(DECLOBJECT, t, QUALNONE, LINKNONE);
 	d->value = mkglobal("__func__", true);
 	scopeputdecl(s, "__func__", d);
@@ -965,7 +965,7 @@ funcinit(struct func *func, struct decl *d, struct init *init)
 		if (init->expr->kind == EXPRSTRING) {
 			for (i = 0; i < init->expr->string.size && i < init->end - init->start; ++i) {
 				dst.addr = funcinst(func, IADD, &iptr, d->value, mkintconst(&iptr, init->start + i));
-				funcstore(func, &typechar, QUALNONE, dst, mkintconst(&i8, init->expr->string.data[i]));
+				funcstore(func, &typechar, QUALMUT, dst, mkintconst(&i8, init->expr->string.data[i]));
 			}
 			offset = init->start + i;
 		} else {
@@ -973,7 +973,7 @@ funcinit(struct func *func, struct decl *d, struct init *init)
 				zero(func, d->value, d->type->align, offset, init->end);
 			dst.addr = funcinst(func, IADD, &iptr, d->value, mkintconst(&iptr, init->start));
 			src = funcexpr(func, init->expr);
-			funcstore(func, init->expr->type, QUALNONE, dst, src);
+			funcstore(func, init->expr->type, QUALMUT, dst, src);
 			offset = init->end;
 		}
 		if (max < offset)

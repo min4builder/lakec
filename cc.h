@@ -21,7 +21,6 @@ enum tokenkind {
 	TAUTO,
 	TBREAK,
 	TCASE,
-	TCONST,
 	TCONTINUE,
 	TDEFAULT,
 	TDO,
@@ -31,6 +30,7 @@ enum tokenkind {
 	TGOTO,
 	TIF,
 	TINLINE,
+	TMUT,
 	TNORETURN,
 	TPUB,
 	TREGISTER,
@@ -120,7 +120,7 @@ struct token {
 enum typequal {
 	QUALNONE,
 
-	QUALCONST    = 1<<1,
+	QUALMUT      = 1<<1,
 	QUALRESTRICT = 1<<2,
 	QUALVOLATILE = 1<<3,
 	QUALATOMIC   = 1<<4,
@@ -416,7 +416,7 @@ extern struct type typei16, typeu16;
 extern struct type typei32, typeu32;
 extern struct type typei64, typeu64;
 extern struct type typef32, typef64;
-extern struct type typevalist, typevalistptr;
+extern struct type typevalist, typevalistptr, typevalistmutptr;
 
 /* targ */
 

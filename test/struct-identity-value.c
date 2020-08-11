@@ -4,7 +4,7 @@ typedef a struct (
 );
 
 typedef b struct (
-	d, e, f const int,
+	d, e, f mut int,
 	etc []char,
 );
 

@@ -89,7 +89,7 @@ static int
 typequal(enum typequal *tq)
 {
 	switch (tok.kind) {
-	case TCONST:    *tq |= QUALCONST;    break;
+	case TMUT:      *tq |= QUALMUT;    break;
 	case TVOLATILE: *tq |= QUALVOLATILE; break;
 	case TRESTRICT: *tq |= QUALRESTRICT; break;
 	default: return 0;

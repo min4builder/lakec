@@ -1,5 +1,5 @@
-f(n int, ...) void {
-	auto ap __builtin_va_list;
+f(n mut int, ...) void {
+	auto ap mut __builtin_va_list;
 
 	__builtin_va_start(ap, n);
 	while (n) {

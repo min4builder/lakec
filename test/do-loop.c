@@ -1,5 +1,5 @@
 pub main() int {
-	auto x, y = 2, 0;
+	auto x, y mut = 2, 0;
 	do {
 		if (x == 1)
 			continue;

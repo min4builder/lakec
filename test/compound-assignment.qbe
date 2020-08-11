@@ -6,12 +6,13 @@ function $f() {
 	%.2 =l add %.1, 0
 	storew 0, %.2
 	%.4 =l add %.3, 0
-	storel %.1, %.4
-	%.5 =l loadl %.3
-	%.6 =l add %.5, 4
-	storel %.6, %.3
-	%.7 =w loadsw %.5
-	%.8 =w add %.7, 1
-	storew %.8, %.5
+	%.5 =l copy %.1
+	storel %.5, %.4
+	%.6 =l loadl %.3
+	%.7 =l add %.6, 4
+	storel %.7, %.3
+	%.8 =w loadsw %.6
+	%.9 =w add %.8, 1
+	storew %.9, %.6
 	ret
 }

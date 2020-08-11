@@ -11,10 +11,12 @@
 - the preprocessor is weird
 
 C, with:
-- simple type inference (auto DONE, missing const)
+- simple type inference
 
       auto x = 65;
-      auto y = x->[f32];
+      x = 66; /* error; constant by default */
+      auto y mut = x->[f32];
+      y = 32.0; /* ok */
       static seventyhundred = 7000.0f;
 
 - new types

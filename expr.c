@@ -588,7 +588,7 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 
 	switch (kind) {
 	case BUILTINALLOCA:
-		e = mkexpr(EXPRBUILTIN, mkpointertype(&typevoid, QUALNONE));
+		e = mkexpr(EXPRBUILTIN, mkpointertype(&typevoid, QUALMUT));
 		e->builtin.kind = BUILTINALLOCA;
 		e->base = exprconvert(assignexpr(s), targ->typeulong);
 		break;
@@ -643,7 +643,7 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 		break;
 	case BUILTINVACOPY:
 		e = mkexpr(EXPRASSIGN, typevalist.base);
-		e->assign.l = mkunaryexpr(TMUL, exprconvert(assignexpr(s), &typevalistptr));
+		e->assign.l = mkunaryexpr(TMUL, exprconvert(assignexpr(s), &typevalistmutptr));
 		expect(TCOMMA, "after target va_list");
 		e->assign.r = mkunaryexpr(TMUL, exprconvert(assignexpr(s), &typevalistptr));
 		e = exprconvert(e, &typevoid);
@@ -677,11 +677,12 @@ mkincdecexpr(enum tokenkind op, struct expr *base, bool post)
 
 	if (!base->lvalue)
 		error(&tok.loc, "operand of '%s' operator must be an lvalue", tokstr[op]);
-	if (base->qual & QUALCONST)
-		error(&tok.loc, "operand of '%s' operator is const qualified", tokstr[op]);
+	if (!(base->qual & QUALMUT))
+		error(&tok.loc, "operand of '%s' operator is not mutable", tokstr[op]);
 	e = mkexpr(EXPRINCDEC, base->type);
 	e->op = op;
 	e->base = base;
+	e->qual = base->qual;
 	e->incdec.post = post;
 	return e;
 }
@@ -783,7 +784,7 @@ postfixexpr(struct scope *s, struct expr *r)
 			t = r->type->base;
 			tq = r->type->qual;
 			if (t->kind != TYPESTRUCT && t->kind != TYPEUNION)
-				error(&tok.loc, "'.' operator must be applied to pointer to struct/union");
+				error(&tok.loc, "'.' operator must be applied to a struct or union");
 			tmp = r;
 			r = mkexpr(EXPRCAST, mkpointertype(&typechar, QUALNONE));
 			r->base = tmp;
@@ -801,6 +802,7 @@ postfixexpr(struct scope *s, struct expr *r)
 				e = mkexpr(EXPRBITFIELD, r->type);
 				e->lvalue = lvalue;
 				e->base = r;
+				e->qual = r->qual;
 				e->bitfield.bits = m->bits;
 			} else {
 				e = r;
@@ -1109,6 +1111,8 @@ assignexpr(struct scope *s)
 	}
 	if (!l->lvalue)
 		error(&tok.loc, "left side of assignment expression is not an lvalue");
+	if (!(l->qual & QUALMUT))
+		error(&tok.loc, "left side of assignment is not mutable");
 	next();
 	r = assignexpr(s);
 	if (!op)
@@ -1133,6 +1137,7 @@ assignexpr(struct scope *s)
 	e->next = mkassignexpr(l, r);
 	l = mkexpr(EXPRCOMMA, l->type);
 	l->base = e;
+	l->qual = e->qual;
 	return l;
 }
 
@@ -1154,6 +1159,7 @@ expr(struct scope *s)
 		return r;
 	e = mkexpr(EXPRCOMMA, e->type);
 	e->base = r;
+	e->qual = r->qual;
 
 	return e;
 }
@@ -1169,6 +1175,7 @@ exprconvert(struct expr *e, struct type *t)
 		error(&tok.loc, "illegal implicit conversion");
 	cast = mkexpr(EXPRCAST, t);
 	cast->base = e;
+	cast->qual = e->qual;
 
 	return cast;
 }

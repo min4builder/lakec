@@ -98,7 +98,7 @@ mangletype(struct type **tstack, int *top, struct type *t, char *w, char *max)
 		*w++ = 'P';
 		if (t->qual & QUALVOLATILE)
 			*w++ = 'V';
-		if (t->qual & QUALCONST)
+		if (!(t->qual & QUALMUT))
 			*w++ = 'K';
 		w = mangletype(tstack, top, t->base, w, max);
 		tstack[(*top)++] = t;
