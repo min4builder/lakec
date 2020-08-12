@@ -1,6 +1,6 @@
 *.o
-/cproc
-/cproc-qbe
+/plang
+/plang-qbe
 /config.h
 /stage2
 /stage3

@@ -6,7 +6,7 @@ objdir=.
 -include config.mk
 
 .PHONY: all
-all: $(objdir)/cproc $(objdir)/cproc-qbe
+all: $(objdir)/plang $(objdir)/plang-qbe
 
 DRIVER_SRC=\
 	driver.c\
@@ -16,7 +16,7 @@ DRIVER_OBJ=$(DRIVER_SRC:%.c=$(objdir)/%.o)
 config.h:
 	./configure
 
-$(objdir)/cproc: $(DRIVER_OBJ)
+$(objdir)/plang: $(DRIVER_OBJ)
 	$(CC) $(LDFLAGS) -o $@ $(DRIVER_OBJ)
 
 SRC=\
@@ -40,7 +40,7 @@ SRC=\
 	$(BACKEND).c
 OBJ=$(SRC:%.c=$(objdir)/%.o)
 
-$(objdir)/cproc-qbe: $(OBJ)
+$(objdir)/plang-qbe: $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $(OBJ)
 
 $(objdir)/decl.o    : decl.c    util.h cc.h       $(stagedeps) ; $(CC) $(CFLAGS) -c -o $@ decl.c
@@ -65,7 +65,7 @@ $(objdir)/util.o    : util.c    util.h            $(stagedeps) ; $(CC) $(CFLAGS)
 
 .PHONY: check
 check: all
-	@CCQBE=./cproc-qbe ./runtests
+	@CCQBE=./plang-qbe ./runtests
 
 .PHONY: qbe
 qbe:
@@ -74,4 +74,4 @@ qbe:
 
 .PHONY: clean
 clean:
-	rm -rf cproc $(DRIVER_OBJ) cproc-qbe $(OBJ)
+	rm -rf plang $(DRIVER_OBJ) plang-qbe $(OBJ)
