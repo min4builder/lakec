@@ -1,2 +1,2 @@
-#define stringize(a) #a
+define stringize(a) = #a;
 stringize(hello)

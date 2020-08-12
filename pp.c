@@ -13,7 +13,7 @@ struct macroparam {
 	enum {
 		PARAMTOK = 1<<0,  /* the parameter is used normally */
 		PARAMSTR = 1<<1,  /* the parameter is used with the '#' operator */
-		PARAMVAR = 1<<2,  /* the parameter is __VA_ARGS__ */
+		PARAMVAR = 1<<2,  /* the parameter is variadic */
 	} flags;
 };
 
@@ -28,6 +28,7 @@ struct macro {
 	enum {
 		MACROOBJ,
 		MACROFUNC,
+		MACROTYPEFUNC,
 	} kind;
 	char *name;
 	/* whether or not this macro is ineligible for expansion */
@@ -81,7 +82,7 @@ macroequal(struct macro *m1, struct macro *m2)
 
 	if (m1->kind != m2->kind)
 		return false;
-	if (m1->kind == MACROFUNC) {
+	if (m1->kind == MACROFUNC || m1->kind == MACROTYPEFUNC) {
 		if (m1->nparam != m2->nparam)
 			return false;
 		for (p1 = m1->param, p2 = m2->param; p1 < m1->param + m1->nparam; ++p1, ++p2) {
@@ -129,17 +130,11 @@ static void
 macrodone(struct macro *m)
 {
 	m->hide = false;
-	if (m->kind == MACROFUNC && m->nparam > 0) {
+	if ((m->kind == MACROFUNC || m->kind == MACROTYPEFUNC) && m->nparam > 0) {
 		free(m->arg[0].token);
 		free(m->arg);
 	}
 	--macrodepth;
-}
-
-static bool
-macrovarargs(struct macro *m)
-{
-	return m->kind == MACROFUNC && m->nparam > 0 && m->param[m->nparam - 1].flags & PARAMVAR;
 }
 
 static struct token *
@@ -183,7 +178,7 @@ again:
 	if (ctx.len == 0)
 		return NULL;
 	m = f->macro;
-	if (m && m->kind == MACROFUNC) {
+	if (m && (m->kind == MACROFUNC || m->kind == MACROTYPEFUNC)) {
 		/* try to expand macro parameter */
 		space = f->token->space;
 		switch (f->token->kind) {
@@ -211,7 +206,7 @@ again:
 }
 
 static void
-include(void)
+import(void)
 {
 	char fullname[1024];
 	FILE *file;
@@ -219,7 +214,7 @@ include(void)
 	char **dir;
 	int i;
 
-	name = tokencheck(&tok, TSTRINGLIT, "after #include");
+	name = tokencheck(&tok, TSTRINGLIT, "after 'import'");
 	name++;
 	for (i = 0; name[i] != '"'; i++) ;
 	name[i] = '\0';
@@ -227,68 +222,84 @@ include(void)
 		snprintf(fullname, sizeof(fullname), "%s/%s", *dir, name);
 		file = fopen(fullname, "r");
 		if (file) {
+			scan(&tok); /* semicolon */
 			scanfrom(name, file);
 			free(name);
 			return;
 		}
 	}
-	error(&tok.loc, "include not found");
+	error(&tok.loc, "import not found");
 }
 
 static void
 define(void)
 {
 	struct token *t;
-	enum tokenkind prev;
+	enum tokenkind prev, end;
 	struct macro *m;
 	struct macroparam *p;
 	struct array params = {0}, repl = {0};
 	struct mapkey k;
 	void **entry;
-	size_t i;
+	size_t i, bn;
 
 	m = xmalloc(sizeof(*m));
 	m->name = tokencheck(&tok, TIDENT, "after #define");
 	m->hide = false;
 	t = arrayadd(&repl, sizeof(*t));
 	scan(t);
-	if (t->kind == TLPAREN && !t->space) {
-		m->kind = MACROFUNC;
+	if (t->kind == TLPAREN || t->kind == TLBRACK) {
+		m->kind = t->kind == TLPAREN ? MACROFUNC : MACROTYPEFUNC;
+		if (t->kind == TLPAREN)
+			end = TRPAREN;
+		else
+			end = TRBRACK;
 		/* read macro parameter names */
-		while (scan(&tok), tok.kind != TRPAREN) {
+		scan(&tok);
+		while (tok.kind != end) {
 			if (params.len) {
 				if (p->flags & PARAMVAR)
 					tokencheck(&tok, TRPAREN, "after '...'");
-				tokencheck(&tok, TCOMMA, "or ')' after macro parameter");
+				tokencheck(&tok, TCOMMA, "or end of argument list after macro parameter");
 				scan(&tok);
 			}
 			p = arrayadd(&params, sizeof(*p));
 			p->flags = 0;
+			p->name = tokencheck(&tok, TIDENT, "of macro parameter name");
+			scan(&tok);
 			if (tok.kind == TELLIPSIS) {
-				p->name = "__VA_ARGS__";
 				p->flags |= PARAMVAR;
-			} else {
-				p->name = tokencheck(&tok, TIDENT, "of macro parameter name or '...'");
+				scan(&tok);
 			}
 		}
 		scan(t);  /* first token in replacement list */
-	} else {
+	} else if (t->kind == TASSIGN) {
 		m->kind = MACROOBJ;
+	} else {
+		error(&t->loc, "expected '=' in object-like macro definition");
 	}
 	m->param = params.val;
 	m->nparam = params.len / sizeof(m->param[0]);
 
 	/* read macro body */
+	if (t->kind == TASSIGN)
+		end = TSEMICOLON;
+	else if (t->kind == TLBRACE)
+		end = TRBRACE;
+	else
+		error(&t->loc, "expecting '=' or '{' to start macro body");
+	scan(t);
+	bn = 0;
 	i = macroparam(m, t);
-	while (t->kind != TNEWLINE && t->kind != TEOF) {
-		if (t->kind == THASHHASH)
-			error(&t->loc, "'##' operator is not yet implemented");
+	while ((t->kind != end || bn) && t->kind != TEOF) {
+		if (t->kind == TLBRACE)
+			bn++;
+		else if (t->kind == TRBRACE)
+			bn--;
 		prev = t->kind;
 		t = arrayadd(&repl, sizeof(*t));
 		scan(t);
-		if (t->kind == TIDENT && strcmp(t->lit, "__VA_ARGS__") == 0 && !macrovarargs(m))
-			error(&t->loc, "__VA_ARGS__ can only be used in variadic function-like macros");
-		if (m->kind != MACROFUNC)
+		if (m->kind != MACROFUNC && m->kind != MACROTYPEFUNC)
 			continue;
 		if (i != -1)
 			m->param[i].flags |= PARAMTOK;
@@ -301,9 +312,10 @@ define(void)
 			i = -1;
 		}
 	}
+	tokencheck(t, end, "to end macro body");
 	m->token = repl.val;
 	m->ntoken = repl.len / sizeof(*t) - 1;
-	tok = *t;
+	scan(&tok);
 
 	mapkey(&k, m->name, strlen(m->name));
 	entry = mapput(macros, &k);
@@ -333,36 +345,37 @@ undef(void)
 	scan(&tok);
 }
 
-static void
+static bool
 directive(void)
 {
 	enum ppflags oldflags;
 	char *name;
 
-	scan(&tok);
-	if (tok.kind == TNEWLINE)
-		return;  /* empty directive */
+	if (tok.kind != TIDENT)
+		return false;
+	name = tok.lit;
 	oldflags = ppflags;
 	ppflags |= PPNEWLINE;
-	name = tokencheck(&tok, TIDENT, "or newline after '#'");
-	if (strcmp(name, "include") == 0) {
+	if (strcmp(name, "import") == 0) {
 		scan(&tok);
-		include();
+		import();
+		tokencheck(&tok, TSEMICOLON, "after import");
 	} else if (strcmp(name, "define") == 0) {
 		scan(&tok);
 		define();
-		tokencheck(&tok, TNEWLINE, "after define");
 	} else if (strcmp(name, "undef") == 0) {
 		scan(&tok);
 		undef();
-		tokencheck(&tok, TNEWLINE, "after undef");
+		tokencheck(&tok, TSEMICOLON, "after undef");
 	} else if (strcmp(name, "line") == 0) {
-		error(&tok.loc, "#line directive is not implemented");
+		error(&tok.loc, "line directive is not implemented");
 	} else {
-		error(&tok.loc, "invalid preprocessor directive #%s", name);
+		ppflags = oldflags;
+		return false;
 	}
 	free(name);
 	ppflags = oldflags;
+	return true;
 }
 
 /* get the next token without expanding it */
@@ -373,9 +386,7 @@ nextinto(struct token *t)
 
 	for (;;) {
 		scan(t);
-		if (newline && t->kind == THASH) {
-			directive();
-		} else {
+		if (!(newline && directive())) {
 			newline = tok.kind == TNEWLINE;
 			break;
 		}
@@ -396,7 +407,7 @@ rawnext(void)
 }
 
 static bool
-peekparen(void)
+peekparen(enum tokenkind begin)
 {
 	static struct array pending;
 	struct token *t;
@@ -404,7 +415,7 @@ peekparen(void)
 
 	t = ctxnext();
 	if (t) {
-		if (t->kind == TLPAREN)
+		if (t->kind == begin)
 			return true;
 		f = arraylast(&ctx, sizeof(*f));
 		--f->token;
@@ -414,7 +425,7 @@ peekparen(void)
 	pending.len = 0;
 	do t = arrayadd(&pending, sizeof(*t)), nextinto(t);
 	while (t->kind == TNEWLINE);
-	if (t->kind == TLPAREN)
+	if (t->kind == begin)
 		return true;
 	t = pending.val;
 	ctxpush(t, pending.len / sizeof(*t), NULL, t[0].space);
@@ -441,14 +452,32 @@ stringize(struct array *buf, struct token *t)
 }
 
 static bool
+typefuncend(enum tokenkind t)
+{
+	switch (t) {
+	case TLBRACE:
+	case TASSIGN:
+	case TSEMICOLON:
+	case TCOMMA:
+	case TRPAREN:
+	case TRBRACK:
+	case TEOF:
+		return true;
+	}
+	return false;
+}
+
+static bool
 expand(struct token *t)
 {
+	static struct token pending;
 	struct macro *m;
 	struct macroparam *p;
 	struct macroarg *arg;
 	struct array str, tok;
+	enum tokenkind begin, end;
 	size_t i, depth, paren;
-	bool space;
+	bool space, braced;
 
 	if (t->kind != TIDENT)
 		return false;
@@ -458,8 +487,12 @@ expand(struct token *t)
 		return false;
 	}
 	space = t->space;
-	if (m->kind == MACROFUNC) {
-		if (!peekparen())
+	braced = true;
+	if (m->kind == MACROFUNC || m->kind == MACROTYPEFUNC) {
+		begin = m->kind == MACROFUNC ? TLPAREN : TLBRACK;
+		end = m->kind == MACROFUNC ? TRPAREN : TRBRACK;
+		braced = peekparen(begin);
+		if (!braced && (m->kind == MACROFUNC || m->nparam != 1))
 			return false;
 		/* read macro arguments */
 		paren = 0;
@@ -480,10 +513,14 @@ expand(struct token *t)
 				if (macrodepth <= depth) {
 					/* adjust current macro depth, in case it got shallower */
 					depth = macrodepth;
-					if (paren == 0 && (t->kind == TRPAREN || t->kind == TCOMMA && !(p->flags & PARAMVAR)))
+					if (paren == 0 && (!braced && typefuncend(t->kind)
+					  || t->kind == end
+					  || t->kind == TCOMMA && !(p->flags & PARAMVAR)))
 						break;
 					switch (t->kind) {
+					case TLBRACK:
 					case TLPAREN: ++paren; break;
+					case TRBRACK:
 					case TRPAREN: --paren; break;
 					}
 					if (p->flags & PARAMSTR)
@@ -502,20 +539,24 @@ expand(struct token *t)
 					.lit = str.val,
 				};
 			}
-			if (t->kind == TRPAREN)
+			if (!braced || t->kind == end)
 				break;
 			t = rawnext();
 		}
 		if (i + 1 < m->nparam)
 			error(&t->loc, "not enough arguments for macro '%s'", m->name);
-		if (t->kind != TRPAREN)
+		if (braced && t->kind != end)
 			error(&t->loc, "too many arguments for macro '%s'", m->name);
+		if (!braced)
+			pending = *t;
 		for (i = 0, t = tok.val; i < m->nparam; ++i) {
 			arg[i].token = t;
 			t += arg[i].ntoken;
 		}
 		m->arg = arg;
 	}
+	if (!braced)
+		ctxpush(&pending, 1, NULL, pending.space);
 	ctxpush(m->token, m->ntoken, m, space);
 	m->hide = true;
 	++macrodepth;

@@ -1,3 +1,3 @@
-#define foo bar
-#undef foo
+define foo = bar;
+undef foo;
 foo

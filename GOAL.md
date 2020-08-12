@@ -41,13 +41,15 @@ C, with:
       }
       stdout << 32;
 
-- module system (#include, static by default DONE, missing import syntax)
+- module system (static by default, basic import DONE, missing namespacing (?))
 
-      #include "libp.h"
+      import "libp.h";
       f() int;
+      /* static by default */
       g() int {
           return f();
       }
+      /* but declarations don't count */
       pub f() int {
           return 3;
       }
@@ -61,13 +63,23 @@ C, with:
       c = sizeof(b);
       d = sizeof[int];
 
+- better preprocessor (better call syntax DONE, definition not very good)
+
+      define a(b) {
+          b
+      }
+      define c[T] = *T;
+      a(x c int);
+
 - type-safe & lw generics (half-done, no real syntax)
 
-      #define Vec(T) struct(len, cap, size ulong, vec *T)
-      a Vec(int) = (0, 0, sizeof[int], 0);
-      #define vecnew(T) (vecnew_(sizeof[T])->[Vec(T)])
-      vecnew_(size int) Vec(void) {
-          return [Vec(void)](0, 0, size, 0);
+      define Vec[T] = struct(len, cap, size ulong, vec *T);
+      a Vec int = (0, 0, sizeof[int], 0);
+      define vecnew[T] {
+          (vecnew_(sizeof[T])->[Vec T])
+      }
+      vecnew_(size ulong) Vec void {
+          return [Vec void](0, 0, size, 0);
       }
 
 - easier error handling (result, switch/continue)

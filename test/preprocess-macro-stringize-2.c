@@ -1,4 +1,4 @@
-#define str(x) # x
+define str(x) = # x;
 str(@)
 str(12 x-    3
  abc)

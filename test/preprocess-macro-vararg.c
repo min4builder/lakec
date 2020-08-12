@@ -1,2 +1,4 @@
-#define f(a, ...) __VA_ARGS__ + a, # __VA_ARGS__
+define f(a, args...) {
+	args + a, # args
+}
 f(abc, 1, (2, 3), 4)
