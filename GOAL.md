@@ -43,15 +43,19 @@ C, with:
 
 - module system (static by default, basic import DONE, missing namespacing (?))
 
-      import "libp.h";
-      f() int;
+      /* on header.ph */
+      typedef t thing;
+      other() int;
+
+      import "header.ph";
       /* static by default */
       g() int {
           return f();
       }
       /* but declarations don't count */
+      f() int;
       pub f() int {
-          return 3;
+          return other();
       }
 
 - new decl syntax (postfix and cast DONE, missing init, compound literals, etc.)

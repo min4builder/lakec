@@ -460,6 +460,8 @@ scan(struct token *t)
 		if (t->kind != TEOF || !scanner->next)
 			break;
 		scanclose();
+		if (importing)
+			importing = false;
 		scanopen();
 	}
 	if (scanner->usebuf) {

@@ -23,32 +23,33 @@ scopeinit(void)
 		{"__builtin_va_arg",     {.kind = DECLBUILTIN, .builtin = BUILTINVAARG}},
 		{"__builtin_va_copy",    {.kind = DECLBUILTIN, .builtin = BUILTINVACOPY}},
 		{"__builtin_va_end",     {.kind = DECLBUILTIN, .builtin = BUILTINVAEND}},
-		{"__builtin_va_list",    {.kind = DECLTYPE, .type = &typevalist}},
 		{"__builtin_va_start",   {.kind = DECLBUILTIN, .builtin = BUILTINVASTART}},
 		{"alloca",   {.kind = DECLBUILTIN, .builtin = BUILTINALLOCA}},
 		{"offsetof", {.kind = DECLBUILTIN, .builtin = BUILTINOFFSETOF}},
-		{"bool", {.kind = DECLTYPE, .type = &typebool}},
-		{"char", {.kind = DECLTYPE, .type = &typechar}},
-		{"f32",  {.kind = DECLTYPE, .type = &typef32}},
-		{"f64",  {.kind = DECLTYPE, .type = &typef64}},
-		{"i8",   {.kind = DECLTYPE, .type = &typei8}},
-		{"i16",  {.kind = DECLTYPE, .type = &typei16}},
-		{"i32",  {.kind = DECLTYPE, .type = &typei32}},
-		{"i64",  {.kind = DECLTYPE, .type = &typei64}},
-		{"u8",   {.kind = DECLTYPE, .type = &typeu8}},
-		{"u16",  {.kind = DECLTYPE, .type = &typeu16}},
-		{"u32",  {.kind = DECLTYPE, .type = &typeu32}},
-		{"u64",  {.kind = DECLTYPE, .type = &typeu64}},
 	};
 	struct builtin *b;
 
 	for (b = builtins; b < builtins + LEN(builtins); ++b)
 		scopeputdecl(&filescope, b->name, &b->decl);
-	scopeputdecl(&filescope, "rune", mkdecl(DECLTYPE, targ->typerune, LINKNONE, QUALNONE));
-	scopeputdecl(&filescope, "int", mkdecl(DECLTYPE, targ->typeint, LINKNONE, QUALNONE));
-	scopeputdecl(&filescope, "uint", mkdecl(DECLTYPE, targ->typeuint, LINKNONE, QUALNONE));
-	scopeputdecl(&filescope, "long", mkdecl(DECLTYPE, targ->typelong, LINKNONE, QUALNONE));
-	scopeputdecl(&filescope, "ulong", mkdecl(DECLTYPE, targ->typeulong, LINKNONE, QUALNONE));
+
+	scopeputtag(&filescope, "__builtin_va_list", &typevalist);
+	scopeputtag(&filescope, "bool", &typebool);
+	scopeputtag(&filescope, "char", &typechar);
+	scopeputtag(&filescope, "f32", &typef32);
+	scopeputtag(&filescope, "f64", &typef64);
+	scopeputtag(&filescope, "i8", &typei8);
+	scopeputtag(&filescope, "i16", &typei16);
+	scopeputtag(&filescope, "i32", &typei32);
+	scopeputtag(&filescope, "i64", &typei64);
+	scopeputtag(&filescope, "u8", &typeu8);
+	scopeputtag(&filescope, "u16", &typeu16);
+	scopeputtag(&filescope, "u32", &typeu32);
+	scopeputtag(&filescope, "u64", &typeu64);
+	scopeputtag(&filescope, "rune", targ->typerune);
+	scopeputtag(&filescope, "int", targ->typeint);
+	scopeputtag(&filescope, "uint", targ->typeuint);
+	scopeputtag(&filescope, "long", targ->typelong);
+	scopeputtag(&filescope, "ulong", targ->typeulong);
 }
 
 struct scope *

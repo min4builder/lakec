@@ -234,7 +234,6 @@ static struct qualtype
 decltype(struct scope *s, int *align)
 {
 	struct type *base, **t, *other, *type;
-	struct decl *d;
 	struct expr *e;
 	struct param **p;
 	enum typequal *tq, qual = QUALNONE;
@@ -260,24 +259,25 @@ decltype(struct scope *s, int *align)
 			*t = tagspec(s);
 			goto done;
 		case TIDENT:
-			d = scopegetdecl(s, tok.lit, 1);
-			if (!d || d->kind != DECLTYPE)
-				goto done;
-			*t = d->type;
+			*t = scopegettag(s, tok.lit, 1);
+			if (!*t) {
+				if (!importing)
+					error(&tok.loc, "type '%s' does not exist", tok.lit);
+				*t = mktype(TYPENONE, PROPNONE);
+				(*t)->incomplete = true;
+				scopeputtag(s, tok.lit, *t);
+			}
 			next();
 			goto done;
 		case TTYPEOF:
 			next();
 			expect(TLPAREN, "after 'typeof'");
-			*t = typename(s, tq);
-			if (!*t) {
-				e = expr(s);
-				if (e->decayed)
-					e = e->base;
-				*t = e->type;
-				*tq |= e->qual;
-				delexpr(e);
-			}
+			e = expr(s);
+			if (e->decayed)
+				e = e->base;
+			*t = e->type;
+			*tq |= e->qual;
+			delexpr(e);
 			expect(TRPAREN, "to close 'typeof'");
 			goto done;
 		case TMUL:
@@ -782,7 +782,7 @@ decl(struct scope *s, struct func *f, bool instmt)
 {
 	struct qualtype qt;
 	struct list *names, db = {&db, &db};
-	struct type *t;
+	struct type *pt, *t;
 	enum typequal tq;
 	enum storageclass sc;
 	enum funcspec fs;
@@ -810,7 +810,7 @@ decl(struct scope *s, struct func *f, bool instmt)
 	}
 	t = qt.type;
 	tq = qt.qual;
-	kind = sc & SCTYPEDEF ? DECLTYPE : t && t->kind == TYPEFUNC ? DECLFUNC : DECLOBJECT;
+	kind = t && t->kind == TYPEFUNC ? DECLFUNC : DECLOBJECT;
 	if (consume(TASM)) {
 		expect(TLPAREN, "after asm");
 		asmname = expect(TSTRINGLIT, "for assembler name");
@@ -827,20 +827,24 @@ decl(struct scope *s, struct func *f, bool instmt)
 			error(&tok.loc, "invalid bit-field declaration");
 		if (!t && kind != DECLOBJECT)
 			error(&tok.loc, "declaration '%s' with no type", name);
-		prior = scopegetdecl(s, name, false);
-		if (prior && prior->kind != kind)
-			error(&tok.loc, "'%s' redeclared with different kind", name);
-		switch (kind) {
-		case DECLTYPE:
+		if (sc & SCTYPEDEF) {
 			if (align)
 				error(&tok.loc, "typedef '%s' declared with alignment specifier", name);
 			if (asmname)
 				error(&tok.loc, "typedef '%s' declared with assembler label", name);
-			if (!prior)
-				scopeputdecl(s, name, mkdecl(DECLTYPE, t, tq, LINKNONE));
-			else if (!typesame(prior->type, t) || prior->qual != tq)
+			pt = scopegettag(s, name, false);
+			if (!pt)
+				scopeputtag(s, name, t);
+			else if (pt->incomplete)
+				*pt = *t;
+			else if (!typesame(pt, t))
 				error(&tok.loc, "typedef '%s' redefined with different type", name);
-			break;
+			continue;
+		}
+		prior = scopegetdecl(s, name, false);
+		if (prior && prior->kind != kind)
+			error(&tok.loc, "'%s' redeclared with different kind", name);
+		switch (kind) {
 		case DECLOBJECT:
 			expr = NULL;
 			if (!t) {

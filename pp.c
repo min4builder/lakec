@@ -50,6 +50,7 @@ struct frame {
 };
 
 enum ppflags ppflags;
+bool importing;
 
 static struct array dirs;
 static struct array ctx;
@@ -214,6 +215,10 @@ import(void)
 	char **dir;
 	int i;
 
+	if (importing)
+		error(&tok.loc, "cannot import from header");
+	importing = true;
+
 	name = tokencheck(&tok, TSTRINGLIT, "after 'import'");
 	name++;
 	for (i = 0; name[i] != '"'; i++) ;
@@ -224,7 +229,7 @@ import(void)
 		if (file) {
 			scan(&tok); /* semicolon */
 			scanfrom(name, file);
-			free(name);
+			free(name-1);
 			return;
 		}
 	}

@@ -215,7 +215,6 @@ struct type {
 };
 
 enum declkind {
-	DECLTYPE,
 	DECLOBJECT,
 	DECLFUNC,
 	DECLCONST,
@@ -381,6 +380,7 @@ enum ppflags {
 };
 
 extern enum ppflags ppflags;
+extern _Bool importing;
 
 void ppdir(char *);
 void ppinit(void);
