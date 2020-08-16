@@ -20,7 +20,7 @@
 enum filetype {
 	NONE,   /* detect based on file extension */
 	ASM,    /* assembly source */
-	P,      /* P source */
+	LAKE,   /* Lake source */
 	OBJ,    /* object file */
 	QBE,    /* QBE IL */
 };
@@ -83,8 +83,8 @@ detectfiletype(const char *name)
 	dot = strrchr(name, '.');
 	if (dot) {
 		++dot;
-		if (strcmp(dot, "pp") == 0)
-			return P;
+		if (strcmp(dot, "lk") == 0)
+			return LAKE;
 		if (strcmp(dot, "qbe") == 0)
 			return QBE;
 		if (strcmp(dot, "s") == 0)
@@ -398,7 +398,7 @@ main(int argc, char *argv[])
 			input->filetype = filetype == NONE && arg[1] ? detectfiletype(arg) : filetype;
 			switch (input->filetype) {
 			case ASM:    input->stages =                       1<<ASSEMBLE|1<<LINK; break;
-			case P:      input->stages = 1<<COMPILE|1<<CODEGEN|1<<ASSEMBLE|1<<LINK; break;
+			case LAKE:   input->stages = 1<<COMPILE|1<<CODEGEN|1<<ASSEMBLE|1<<LINK; break;
 			case QBE:    input->stages =            1<<CODEGEN|1<<ASSEMBLE|1<<LINK; break;
 			case OBJ:    input->stages =                                   1<<LINK; break;
 			default:     usage("reading from standard input requires -x");
@@ -497,8 +497,8 @@ main(int argc, char *argv[])
 				arg = nextarg(&argv);
 				if (strcmp(arg, "none") == 0)
 					filetype = NONE;
-				else if (strcmp(arg, "pp") == 0)
-					filetype = P;
+				else if (strcmp(arg, "lake") == 0)
+					filetype = LAKE;
 				else if (strcmp(arg, "qbe") == 0)
 					filetype = QBE;
 				else if (strcmp(arg, "assembler") == 0)

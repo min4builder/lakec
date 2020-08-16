@@ -1,4 +1,4 @@
-The P compiler is based on the `cproc` C compiler, since both languages
+The Lake compiler is based on the `cproc` C compiler, since both languages
 are rather similar.
 
 The compiler and language are still under development, and the syntax
@@ -60,9 +60,9 @@ Once this is done, you can build with
 ## Automated tests
 
 Run `make check` to run the automated regression suite. It has been
-updated to run in P, and reading it is probably the best way to get
+updated to run in Lake, and reading it is probably the best way to get
 a feel for what the language is about, until proper documentation is
-in place. It is available under `test/*.c`.
+in place. It is available under `test/*.lk`.
 
 [QBE]: https://c9x.me/compile/
 [C11]: http://port70.net/~nsz/c/c11/n1570.html

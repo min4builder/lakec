@@ -1,6 +1,4 @@
 *.o
-/plang
-/plang-qbe
+/lakec
+/lakec-qbe
 /config.h
-/stage2
-/stage3
