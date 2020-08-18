@@ -86,7 +86,22 @@ C, with:
           return [Vec void](0, 0, size, 0);
       }
 
-- easier error handling (result, switch/continue)
+- easier error handling (switch/continue WIP, result)
+
+      switch (0) {
+      case 0:
+          e = callthatmayerror();
+          if (e) continue e;
+          e = othercallthatmayerror();
+          if (e) continue e;
+      case EFOO:
+          /* handle */
+      case EBAR:
+          /* handle */
+      else:
+          puts("I don't know that error");
+      }
+
 - easier res management (copy, move & drop)
 - good language extension system (macros, decls, attrs)
 - good standard library (plan 9-inspired, with threading, graphics, etc.)

@@ -41,6 +41,7 @@ Features:
   too far away) reference counting, arenas, garbage collection etc.)
 - Well-specified and nice type names (u8/i16 type, plus int for a machine
   integer and long for a pointer integer)
+- Better switch, with a replacement for fallthrough
 - Full-blown pointers, with pointer arithmetic and no need for `unsafe`
   blocks
 - `goto` and other unsafe things

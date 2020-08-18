@@ -22,7 +22,6 @@ enum tokenkind {
 	TBREAK,
 	TCASE,
 	TCONTINUE,
-	TDEFAULT,
 	TDO,
 	TELSE,
 	TENUM,
@@ -268,6 +267,7 @@ struct scope {
 	struct value *breaklabel;
 	struct value *continuelabel;
 	struct switchcases *switchcases;
+	struct expr *switchcond;
 	struct scope *parent;
 };
 
@@ -468,7 +468,9 @@ struct expr *constexpr(struct scope *);
 uint64_t intconstexpr(struct scope *, _Bool);
 void delexpr(struct expr *);
 
+struct expr *mkassignexpr(struct expr *, struct expr *);
 struct expr *exprconvert(struct expr *, struct type *);
+struct expr *exprtemp(struct expr **, struct expr *);
 struct expr *exprpromote(struct expr *);
 
 /* eval */
@@ -496,7 +498,7 @@ struct gotolabel {
 
 struct switchcases {
 	void *root;
-	struct value *defaultlabel;
+	struct value *elselabel;
 };
 
 struct repr;

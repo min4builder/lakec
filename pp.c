@@ -584,7 +584,6 @@ keyword(struct token *tok)
 		{"break",          TBREAK},
 		{"case",           TCASE},
 		{"continue",       TCONTINUE},
-		{"default",        TDEFAULT},
 		{"do",             TDO},
 		{"else",           TELSE},
 		{"enum",           TENUM},

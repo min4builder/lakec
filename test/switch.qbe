@@ -8,7 +8,7 @@ function $f() {
 	jmp @switch_join.4
 @switch_case.7
 	jmp @switch_join.4
-@switch_default.8
+@switch_else.8
 	jmp @switch_join.4
 @switch_case.9
 	jmp @switch_join.4
@@ -33,11 +33,11 @@ function $f() {
 	%.6 =w cultw 0, 0
 	jnz %.6, @switch_lt.18, @switch_gt.19
 @switch_lt.18
-	jmp @switch_default.8
+	jmp @switch_else.8
 @switch_gt.19
-	jmp @switch_default.8
+	jmp @switch_else.8
 @switch_gt.16
-	jmp @switch_default.8
+	jmp @switch_else.8
 @switch_gt.13
 	%.7 =w ceqw 0, 18446744073709551613
 	jnz %.7, @switch_case.7, @switch_ne.20
@@ -51,11 +51,11 @@ function $f() {
 	%.10 =w cultw 0, 101
 	jnz %.10, @switch_lt.24, @switch_gt.25
 @switch_lt.24
-	jmp @switch_default.8
+	jmp @switch_else.8
 @switch_gt.25
-	jmp @switch_default.8
+	jmp @switch_else.8
 @switch_gt.22
-	jmp @switch_default.8
+	jmp @switch_else.8
 @switch_join.4
 	ret
 }

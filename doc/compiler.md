@@ -121,7 +121,23 @@ and is in general more useful, but it does make `mut` mandatory.
 
 ## Statements
 
-Currently, the same as C, except for declarations.
+Currently, mostly the same as C, except for declarations and:
+
+Switch:
+
+    switch (value) {
+    case 1:
+        /* break is implicit; no fallthrough here */
+    case 2:
+        /* continue can be used to change that */
+        continue 1;
+    case 3:
+        value = 2;
+        /* can be a dynamic expression */
+        continue value;
+    else:
+        /* default is else */
+    }
 
 ## Expressions
 

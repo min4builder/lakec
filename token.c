@@ -19,7 +19,6 @@ const char *tokstr[] = {
 	[TBREAK] = "break",
 	[TCASE] = "case",
 	[TCONTINUE] = "continue",
-	[TDEFAULT] = "default",
 	[TDO] = "do",
 	[TELSE] = "else",
 	[TENUM] = "enum",

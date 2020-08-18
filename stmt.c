@@ -29,7 +29,7 @@ void
 stmt(struct func *f, struct scope *s)
 {
 	char *name;
-	struct expr *e;
+	struct expr *e, *switchcond;
 	struct type *t;
 	struct value *v, *label[4];
 	struct switchcases swtch = {0};
@@ -43,6 +43,7 @@ stmt(struct func *f, struct scope *s)
 		next();
 		if (!s->switchcases)
 			error(&tok.loc, "'case' label must be in switch");
+		funcjmp(f, s->breaklabel);
 		label[0] = mkblock("switch_case");
 		funclabel(f, label[0]);
 		i = intconstexpr(s, true);
@@ -50,15 +51,16 @@ stmt(struct func *f, struct scope *s)
 		expect(TCOLON, "after case expression");
 		stmt(f, s);
 		break;
-	case TDEFAULT:
+	case TELSE:
 		next();
 		if (!s->switchcases)
-			error(&tok.loc, "'default' label must be in switch");
-		if (s->switchcases->defaultlabel)
-			error(&tok.loc, "multiple 'default' labels");
-		expect(TCOLON, "after 'default'");
-		s->switchcases->defaultlabel = mkblock("switch_default");
-		funclabel(f, s->switchcases->defaultlabel);
+			error(&tok.loc, "'else' label must be in switch");
+		if (s->switchcases->elselabel)
+			error(&tok.loc, "multiple 'else' labels");
+		expect(TCOLON, "after 'else'");
+		funcjmp(f, s->breaklabel);
+		s->switchcases->elselabel = mkblock("switch_else");
+		funclabel(f, s->switchcases->elselabel);
 		stmt(f, s);
 		break;
 
@@ -122,7 +124,7 @@ stmt(struct func *f, struct scope *s)
 
 		s = mkscope(s);
 		expect(TLPAREN, "after 'switch'");
-		e = expr(s);
+		e = exprtemp(&switchcond, expr(s));
 		expect(TRPAREN, "after expression");
 
 		if (!(e->type->prop & PROPINT))
@@ -132,16 +134,19 @@ stmt(struct func *f, struct scope *s)
 		label[0] = mkblock("switch_cond");
 		label[1] = mkblock("switch_join");
 
-		v = funcexpr(f, e);
+		funcexpr(f, e);
 		funcjmp(f, label[0]);
 		s = mkscope(s);
 		s->breaklabel = label[1];
+		s->continuelabel = label[0];
 		s->switchcases = &swtch;
+		s->switchcond = switchcond;
 		stmt(f, s);
 		funcjmp(f, label[1]);
 
 		funclabel(f, label[0]);
-		funcswitch(f, v, &swtch, swtch.defaultlabel ? swtch.defaultlabel : label[1]);
+		v = funcexpr(f, switchcond);
+		funcswitch(f, v, &swtch, swtch.elselabel ? swtch.elselabel : label[1]);
 		s = delscope(s);
 
 		funclabel(f, label[1]);
@@ -256,9 +261,15 @@ stmt(struct func *f, struct scope *s)
 	case TCONTINUE:
 		next();
 		if (!s->continuelabel)
-			error(&tok.loc, "'continue' statement must be in loop");
+			error(&tok.loc, "'continue' statement must be in loop or switch");
+		if (!consume(TSEMICOLON)) {
+			e = expr(s);
+			e = mkassignexpr(s->switchcond, e);
+			funcexpr(f, e);
+			delexpr(e);
+			expect(TSEMICOLON, "after 'continue' statement");
+		}
 		funcjmp(f, s->continuelabel);
-		expect(TSEMICOLON, "after 'continue' statement");
 		break;
 	case TBREAK:
 		next();

@@ -409,10 +409,10 @@ generic(struct scope *s)
 	want = e->type;
 	delexpr(e);
 	do {
-		if (consume(TDEFAULT)) {
+		if (consume(TELSE)) {
 			if (def)
-				error(&tok.loc, "multiple default expressions in generic association list");
-			expect(TCOLON, "after 'default'");
+				error(&tok.loc, "multiple else expressions in generic association list");
+			expect(TCOLON, "after 'else'");
 			def = assignexpr(s);
 		} else {
 			qual = QUALNONE;
@@ -1074,7 +1074,7 @@ intconstexpr(struct scope *s, bool allowneg)
 	return e->constant.i;
 }
 
-static struct expr *
+struct expr *
 mkassignexpr(struct expr *l, struct expr *r)
 {
 	struct expr *e;
@@ -1124,10 +1124,7 @@ assignexpr(struct scope *s)
 	} else {
 		bit = NULL;
 	}
-	tmp = mkexpr(EXPRTEMP, mkpointertype(l->type, l->qual));
-	tmp->lvalue = true;
-	tmp->temp = NULL;
-	e = mkassignexpr(tmp, mkunaryexpr(TBAND, l));
+	e = exprtemp(&tmp, mkunaryexpr(TBAND, l));
 	l = mkunaryexpr(TMUL, tmp);
 	if (bit) {
 		bit->base = l;
@@ -1139,6 +1136,17 @@ assignexpr(struct scope *s)
 	l->base = e;
 	l->qual = e->qual;
 	return l;
+}
+
+struct expr *
+exprtemp(struct expr **tmp, struct expr *e)
+{
+	*tmp = mkexpr(EXPRTEMP, e->type);
+	(*tmp)->lvalue = true;
+	(*tmp)->temp = NULL;
+	e = mkassignexpr(*tmp, e);
+
+	return e;
 }
 
 struct expr *
