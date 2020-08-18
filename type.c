@@ -296,12 +296,12 @@ typemember(struct type *t, const char *name, uint64_t *offset)
 
 	assert(t->kind == TYPESTRUCT || t->kind == TYPEUNION);
 	for (m = t->structunion.members; m; m = m->next) {
-		if (m->name) {
+		if (strcmp(m->name, "_")) {
 			if (strcmp(m->name, name) == 0) {
 				*offset += m->offset;
 				return m;
 			}
-		} else {
+		} else if (m->type->kind == TYPESTRUCT || m->type->kind == TYPEUNION) {
 			sub = typemember(m->type, name, offset);
 			if (sub) {
 				*offset += m->offset;

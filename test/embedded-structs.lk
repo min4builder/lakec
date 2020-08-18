@@ -1,0 +1,8 @@
+struct a(x, y int);
+struct b(_ a, z int);
+x b;
+
+f() int {
+	return x.x;
+}
+

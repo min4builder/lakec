@@ -1,0 +1,8 @@
+union a(x bool, y int);
+struct b(_ a, z int);
+x b;
+
+f() bool {
+	return x.x;
+}
+

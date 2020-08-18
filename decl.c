@@ -663,7 +663,7 @@ structdecl(struct scope *s, struct structbuilder *b)
 
 	qt = declaration(s, NULL, NULL, &db, &align, false);
 	if (!qt.type)
-		error(&tok.loc, "invalid struct member declaration (no name?)");
+		error(&tok.loc, "invalid struct member declaration");
 
 	for (names = db.next; names != &db; names = names->next) {
 		decl = listelement(names, struct declbuilder, list);
