@@ -229,7 +229,6 @@ import(void)
 		if (file) {
 			scan(&tok); /* semicolon */
 			scanfrom(name, file);
-			free(name-1);
 			return;
 		}
 	}
