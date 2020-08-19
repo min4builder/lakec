@@ -125,7 +125,8 @@ ident(struct scanner *s)
 	s->usebuf = true;
 	while (isalnum(s->chr) || s->chr == '_')
 		nextchar(s);
-
+	if (s->chr == '?')
+		nextchar(s);
 	return TIDENT;
 }
 
@@ -371,9 +372,6 @@ again:
 	case '~':
 		nextchar(s);
 		return TBNOT;
-	case '?':
-		nextchar(s);
-		return TQUESTION;
 	case ':':
 		nextchar(s);
 		if (s->chr != ':')
@@ -399,7 +397,7 @@ again:
 	default:
 		if (isdigit(s->chr))
 			return number(s);
-		if (isalpha(s->chr) || s->chr == '_')
+		if (isalpha(s->chr) || s->chr == '_' || s->chr == '?')
 			return ident(s);
 		s->usebuf = true;
 		nextchar(s);

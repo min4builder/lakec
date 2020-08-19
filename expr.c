@@ -429,7 +429,7 @@ generic(struct scope *s)
 
 	next();
 	expect(TLPAREN, "after '_Generic'");
-	e = assignexpr(s);
+	e = condexpr(s);
 	expect(TCOMMA, "after generic selector expression");
 	want = e->type;
 	delexpr(e);
@@ -438,14 +438,14 @@ generic(struct scope *s)
 			if (def)
 				error(&tok.loc, "multiple else expressions in generic association list");
 			expect(TCOLON, "after 'else'");
-			def = assignexpr(s);
+			def = condexpr(s);
 		} else {
 			qual = QUALNONE;
 			t = typename(s, &qual);
 			if (!t)
 				error(&tok.loc, "expected typename for generic association");
 			expect(TCOLON, "after type name");
-			e = assignexpr(s);
+			e = condexpr(s);
 			if (typecompatible(t, want) && qual == QUALNONE) {
 				if (match)
 					error(&tok.loc, "generic selector matches multiple associations");
@@ -564,8 +564,6 @@ primaryexpr(struct scope *s)
 	return e;
 }
 
-static struct expr *condexpr(struct scope *);
-
 /* TODO: merge with init.c:designator() */
 static void
 designator(struct scope *s, struct type *t, uint64_t *offset)
@@ -615,7 +613,7 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 	case BUILTINALLOCA:
 		e = mkexpr(EXPRBUILTIN, mkpointertype(&typevoid, QUALMUT));
 		e->builtin.kind = BUILTINALLOCA;
-		e->base = exprconvert(assignexpr(s), targ->typeulong);
+		e->base = exprconvert(condexpr(s), targ->typeulong);
 		break;
 	case BUILTINCONSTANTP:
 		e = mkconstexpr(&typebool, eval(condexpr(s), EVALARITH)->kind == EXPRCONST);
@@ -623,9 +621,9 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 	case BUILTINEXPECT:
 		/* just a no-op for now */
 		/* TODO: check that the expression and the expected value have type 'long' */
-		e = assignexpr(s);
+		e = condexpr(s);
 		expect(TCOMMA, "after expression");
-		delexpr(assignexpr(s));
+		delexpr(condexpr(s));
 		break;
 	case BUILTININFF:
 		e = mkexpr(EXPRCONST, &typef64);
@@ -633,7 +631,7 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 		e->constant.f = strtod("inf", NULL);
 		break;
 	case BUILTINNANF:
-		e = assignexpr(s);
+		e = condexpr(s);
 		if (!e->decayed || e->base->kind != EXPRSTRING || e->base->string.size > 0)
 			error(&tok.loc, "__builtin_nanf currently only supports empty string literals");
 		e = mkexpr(EXPRCONST, &typef64);
@@ -662,28 +660,28 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 	case BUILTINVAARG:
 		e = mkexpr(EXPRBUILTIN, NULL);
 		e->builtin.kind = BUILTINVAARG;
-		e->base = exprconvert(assignexpr(s), &typevalistptr);
+		e->base = exprconvert(condexpr(s), &typevalistptr);
 		expect(TCOMMA, "after va_list");
 		e->type = typename(s, &e->qual);
 		break;
 	case BUILTINVACOPY:
 		e = mkexpr(EXPRASSIGN, typevalist.base);
-		e->assign.l = mkunaryexpr(TMUL, exprconvert(assignexpr(s), &typevalistmutptr));
+		e->assign.l = mkunaryexpr(TMUL, exprconvert(condexpr(s), &typevalistmutptr));
 		expect(TCOMMA, "after target va_list");
-		e->assign.r = mkunaryexpr(TMUL, exprconvert(assignexpr(s), &typevalistptr));
+		e->assign.r = mkunaryexpr(TMUL, exprconvert(condexpr(s), &typevalistptr));
 		e = exprconvert(e, &typevoid);
 		break;
 	case BUILTINVAEND:
 		e = mkexpr(EXPRBUILTIN, &typevoid);
 		e->builtin.kind = BUILTINVAEND;
-		exprconvert(assignexpr(s), &typevalistptr);
+		exprconvert(condexpr(s), &typevalistptr);
 		break;
 	case BUILTINVASTART:
 		e = mkexpr(EXPRBUILTIN, &typevoid);
 		e->builtin.kind = BUILTINVASTART;
-		e->base = exprconvert(assignexpr(s), &typevalistptr);
+		e->base = exprconvert(condexpr(s), &typevalistptr);
 		expect(TCOMMA, "after va_list");
-		param = assignexpr(s);
+		param = condexpr(s);
 		if (param->kind != EXPRIDENT)
 			error(&tok.loc, "expected parameter identifier");
 		delexpr(param);
@@ -789,7 +787,7 @@ postfixexpr(struct scope *s, struct expr *r)
 					expect(TCOMMA, "or ')' after function call argument");
 				if (!p && !t->func.isvararg && t->func.paraminfo)
 					error(&tok.loc, "too many arguments for function call");
-				*end = assignexpr(s);
+				*end = condexpr(s);
 				if (t->func.isvararg && !p)
 					*end = exprpromote(*end);
 				else
@@ -1053,20 +1051,24 @@ binaryexpr(struct scope *s, struct expr *l, int i)
 	return l;
 }
 
-static struct expr *
+static struct expr *assignexpr(struct scope *);
+
+struct expr *
 condexpr(struct scope *s)
 {
 	struct expr *r, *e;
 	struct type *t, *f;
 	enum typequal tq;
 
-	r = binaryexpr(s, NULL, 0);
-	if (!consume(TQUESTION))
-		return r;
+	if (!consume(TIF))
+		return assignexpr(s);
+	expect(TLPAREN, "after 'if'");
+	r = expr(s);
+	expect(TRPAREN, "after if's condition");
 	e = mkexpr(EXPRCOND, NULL);
 	e->base = exprconvert(r, &typebool);
 	e->cond.t = expr(s);
-	expect(TCOLON, "in conditional expression");
+	expect(TELSE, "in conditional expression");
 	e->cond.f = condexpr(s);
 	t = e->cond.t->type;
 	f = e->cond.f->type;
@@ -1133,13 +1135,13 @@ mkassignexpr(struct expr *l, struct expr *r)
 	return e;
 }
 
-struct expr *
+static struct expr *
 assignexpr(struct scope *s)
 {
 	struct expr *e, *l, *r, *tmp, *bit;
 	enum tokenkind op;
 
-	l = condexpr(s);
+	l = binaryexpr(s, NULL, 0);
 	if (l->kind == EXPRBINARY || l->kind == EXPRCOMMA || l->kind == EXPRCAST)
 		return l;
 	switch (tok.kind) {
@@ -1162,7 +1164,7 @@ assignexpr(struct scope *s)
 	if (!(l->qual & QUALMUT))
 		error(&tok.loc, "left side of assignment is not mutable");
 	next();
-	r = assignexpr(s);
+	r = condexpr(s);
 	if (!op)
 		return mkassignexpr(l, r);
 	/* rewrite `E1 OP= E2` as `T = &E1, *T = *T OP E2`, where T is a temporary slot */
@@ -1204,7 +1206,7 @@ expr(struct scope *s)
 
 	end = &r;
 	for (;;) {
-		e = assignexpr(s);
+		e = condexpr(s);
 		*end = e;
 		end = &e->next;
 		if (tok.kind != TCOMMA)

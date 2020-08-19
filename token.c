@@ -77,7 +77,6 @@ const char *tokstr[] = {
 	[TBOR] = "|",
 	[TLAND] = "&&",
 	[TLOR] = "||",
-	[TQUESTION] = "?",
 	[TCOLON] = ":",
 	[TCOLONCOLON] = "::",
 	[TSEMICOLON] = ";",

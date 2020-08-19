@@ -561,11 +561,6 @@ mkfunc(struct decl *decl, char *name, struct type *t, struct scope *s)
 	d = mkdecl(DECLOBJECT, t, QUALNONE, LINKNONE);
 	d->value = mkglobal("__func__", true);
 	scopeputdecl(s, "__func__", d);
-	/*
-	needed for glibc's assert definition with __GNUC__=2 __GNUC_MINOR__=4
-	XXX: this should also work at file scope, where it should evaluate to "toplevel"
-	*/
-	scopeputdecl(s, "__PRETTY_FUNCTION__", d);
 	f->namedecl = d;
 
 	funclabel(f, mkblock("body"));
@@ -1029,8 +1024,18 @@ funcswitch(struct func *f, struct value *v, struct switchcases *c, struct value 
 static void
 emitname(struct name *n)
 {
-	if (n->str)
-		fputs(n->str, stdout);
+	char *s = n->str;
+
+	if (n->str) {
+		s = n->str;
+		while (*s) {
+			if (*s == '?')
+				fputs(".qm", stdout);
+			else
+				putc(*s, stdout);
+			s++;
+		}
+	}
 	if (n->id)
 		printf(".%" PRIu64, n->id);
 }

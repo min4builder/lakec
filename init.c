@@ -235,7 +235,7 @@ parseinit(struct scope *s, struct type *t)
 			p.cur->iscur = true;
 			continue;
 		}
-		expr = assignexpr(s);
+		expr = condexpr(s);
 		for (;;) {
 			t = p.sub->type;
 			switch (t->kind) {

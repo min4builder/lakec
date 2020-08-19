@@ -153,6 +153,7 @@ Currently, mostly the same as C, except:
     expr->[type] /* cast syntax */
     expr.property /* also works with pointers to structs and unions */
     [[]int](1, 2, 3) /* struct and array literals */
+    if(cond) 1 else 2 /* instead of ternary operator */
 
 ## Built-in functions and macros
 

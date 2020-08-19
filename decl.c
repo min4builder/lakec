@@ -292,7 +292,7 @@ decltype(struct scope *s, int *align)
 				i = 0;
 				next();
 			} else {
-				e = eval(assignexpr(s), EVALARITH);
+				e = eval(condexpr(s), EVALARITH);
 				if (e->kind != EXPRCONST || !(e->type->prop & PROPINT))
 					error(&tok.loc, "VLAs are not yet supported");
 				i = e->constant.i;
@@ -764,7 +764,7 @@ staticassert(struct scope *s)
 	expect(TLPAREN, "after static_assert");
 	c = intconstexpr(s, true);
 	if (consume(TCOMMA)) {
-		e = assignexpr(s);
+		e = condexpr(s);
 		if (!e->decayed || e->base->kind != EXPRSTRING)
 			error(&tok.loc, "expected string literal after static assertion expression");
 		if (!c)
@@ -850,7 +850,7 @@ decl(struct scope *s, struct func *f, bool instmt)
 			if (!t) {
 				if (!initialize)
 					error(&tok.loc, "expected initializer for type-inferred declaration");
-				expr = assignexpr(s);
+				expr = condexpr(s);
 				t = expr->type;
 				init = mkinit(0, t->size, (struct bitfield){0}, expr);
 			}

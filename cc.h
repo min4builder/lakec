@@ -80,7 +80,6 @@ enum tokenkind {
 	TBOR,
 	TLAND,
 	TLOR,
-	TQUESTION,
 	TCOLON,
 	TCOLONCOLON,
 	TSEMICOLON,
@@ -464,7 +463,7 @@ extern struct scope filescope;
 /* expr */
 
 struct expr *expr(struct scope *);
-struct expr *assignexpr(struct scope *);
+struct expr *condexpr(struct scope *);
 struct expr *constexpr(struct scope *);
 uint64_t intconstexpr(struct scope *, _Bool);
 void delexpr(struct expr *);

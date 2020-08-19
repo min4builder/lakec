@@ -1,0 +1,10 @@
+data $x.qm = align 4 { w 0, }
+function w $f.qm(w %.1) {
+@start.1
+	%.2 =l alloc4 4
+	storew %.1, %.2
+@body.2
+	%.3 =w loadsw %.2
+	%.4 =w ceqw %.3, 0
+	ret %.4
+}
