@@ -154,6 +154,7 @@ Currently, mostly the same as C, except:
     expr.property /* also works with pointers to structs and unions */
     [[]int](1, 2, 3) /* struct and array literals */
     if(cond) 1 else 2 /* instead of ternary operator */
+    /* break, continue, goto and return are expressions */
 
 ## Built-in functions and macros
 

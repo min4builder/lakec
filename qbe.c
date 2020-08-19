@@ -924,6 +924,15 @@ funcexpr(struct func *f, struct expr *e)
 	case EXPRTEMP:
 		assert(e->temp);
 		return e->temp;
+	case EXPRJUMP:
+		funcjmp(f, e->label);
+		return NULL;
+	case EXPRRET:
+		l = NULL;
+		if (e->base)
+			l = funcexpr(f, e->base);
+		funcret(f, l);
+		return NULL;
 	default:
 		fatal("unimplemented expression %d", e->kind);
 	}

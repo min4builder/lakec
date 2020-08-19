@@ -267,6 +267,7 @@ struct scope {
 	struct value *continuelabel;
 	struct switchcases *switchcases;
 	struct expr *switchcond;
+	struct func *func;
 	struct scope *parent;
 };
 
@@ -293,6 +294,8 @@ enum exprkind {
 
 	EXPRBUILTIN,
 	EXPRTEMP,
+	EXPRJUMP,
+	EXPRRET,
 };
 
 struct expr {
@@ -345,6 +348,7 @@ struct expr {
 		struct {
 			enum builtinkind kind;
 		} builtin;
+		struct value *label;
 		struct value *temp;
 	};
 };

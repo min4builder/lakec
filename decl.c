@@ -896,8 +896,8 @@ decl(struct scope *s, struct func *f, bool instmt)
 					d->linkage = LINKINTERN;
 				s = mkscope(&filescope);
 				f = mkfunc(d, name, t, s);
+				s->func = f;
 				stmt(f, s);
-				/* XXX: need to keep track of function in case a later declaration specifies extern */
 				if (!d->inlinedefn)
 					emitfunc(f, d->linkage == LINKEXTERN);
 				s = delscope(s);

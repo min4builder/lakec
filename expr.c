@@ -715,7 +715,7 @@ mkincdecexpr(struct scope *s, enum tokenkind op, struct expr *base, bool post)
 			r->next = tmp2;
 			e = mkexpr(EXPRCOMMA, tmp2->type);
 			e->base = l;
-			e->qual = l->qual;
+			e->qual = tmp2->qual;
 		} else {
 			e = mkoverloadexpr(d, e, NULL);
 		}
@@ -876,6 +876,7 @@ unaryexpr(struct scope *s)
 	struct expr *e, *l;
 	struct type *t;
 	struct decl *d;
+	char *name;
 
 	op = tok.kind;
 	switch (op) {
@@ -935,6 +936,43 @@ unaryexpr(struct scope *s)
 		if (!(e->type->prop & PROPSCALAR))
 			error(&tok.loc, "operator '!' must have scalar operand");
 		e = mkbinaryexpr(s, &tok.loc, TEQL, e, mkconstexpr(targ->typeint, 0));
+		break;
+	case TGOTO:
+		next();
+		name = expect(TIDENT, "after 'goto'");
+		e = mkexpr(EXPRJUMP, &typevoid);
+		e->label = funcgoto(s->func, name)->label;
+		break;
+	case TCONTINUE:
+		if (!s->continuelabel)
+			error(&tok.loc, "'continue' must be in loop or switch");
+		next();
+		e = mkexpr(EXPRJUMP, &typevoid);
+		e->label = s->continuelabel;
+		if (s->switchcond) {
+			l = condexpr(s);
+			l = mkassignexpr(s->switchcond, l);
+			l->next = e;
+			e = mkexpr(EXPRCOMMA, &typevoid);
+			e->base = l;
+			e->qual = QUALNONE;
+		}
+		break;
+	case TBREAK:
+		if (!s->breaklabel)
+			error(&tok.loc, "'break' must be in loop or switch");
+		next();
+		e = mkexpr(EXPRJUMP, &typevoid);
+		e->label = s->breaklabel;
+		break;
+	case TRETURN:
+		next();
+		t = functype(s->func);
+		l = NULL;
+		if (t->base != &typevoid)
+			l = exprconvert(expr(s), t->base);
+		e = mkexpr(EXPRRET, &typevoid);
+		e->base = l;
 		break;
 	case TSIZEOF:
 	case TALIGNOF:

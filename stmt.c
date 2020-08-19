@@ -251,47 +251,6 @@ stmt(struct func *f, struct scope *s)
 		s = delscope(s);
 		break;
 
-	/* 6.8.6 Jump statements */
-	case TGOTO:
-		next();
-		name = expect(TIDENT, "after 'goto'");
-		funcjmp(f, funcgoto(f, name)->label);
-		expect(TSEMICOLON, "after 'goto' statement");
-		break;
-	case TCONTINUE:
-		next();
-		if (!s->continuelabel)
-			error(&tok.loc, "'continue' statement must be in loop or switch");
-		if (!consume(TSEMICOLON)) {
-			e = expr(s);
-			e = mkassignexpr(s->switchcond, e);
-			funcexpr(f, e);
-			delexpr(e);
-			expect(TSEMICOLON, "after 'continue' statement");
-		}
-		funcjmp(f, s->continuelabel);
-		break;
-	case TBREAK:
-		next();
-		if (!s->breaklabel)
-			error(&tok.loc, "'break' statement must be in loop or switch");
-		funcjmp(f, s->breaklabel);
-		expect(TSEMICOLON, "after 'break' statement");
-		break;
-	case TRETURN:
-		next();
-		t = functype(f);
-		if (t->base != &typevoid) {
-			e = exprconvert(expr(s), t->base);
-			v = funcexpr(f, e);
-			delexpr(e);
-		} else {
-			v = NULL;
-		}
-		funcret(f, v);
-		expect(TSEMICOLON, "after 'return' statement");
-		break;
-
 	case TASM:
 		error(&tok.loc, "inline assembly is not yet supported");
 	}
