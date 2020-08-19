@@ -188,6 +188,45 @@ nullpointer(struct expr *e)
 	return e->constant.i == 0;
 }
 
+static void
+condunify(struct expr *e)
+{
+	struct type *t, *f;
+	enum typequal tq;
+
+	t = e->cond.t->type;
+	f = e->cond.f->type;
+	if (t == f) {
+		e->type = t;
+	} else if (t->prop & PROPARITH && f->prop & PROPARITH) {
+		e->type = commonreal(&e->cond.t, &e->cond.f);
+	} else if (t == &typevoid && f == &typevoid) {
+		e->type = &typevoid;
+	} else {
+		e->cond.t = eval(e->cond.t, EVALARITH);
+		e->cond.f = eval(e->cond.f, EVALARITH);
+		if (nullpointer(e->cond.t) && f->kind == TYPEPOINTER) {
+			e->type = f;
+		} else if (nullpointer(e->cond.f) && t->kind == TYPEPOINTER) {
+			e->type = t;
+		} else if (t->kind == TYPEPOINTER && f->kind == TYPEPOINTER) {
+			tq = t->qual | f->qual;
+			t = t->base;
+			f = f->base;
+			if (t == &typevoid || f == &typevoid) {
+				e->type = &typevoid;
+			} else {
+				if (!typecompatible(t, f))
+					error(&tok.loc, "operands of conditional operator must have compatible types");
+				e->type = typecomposite(t, f);
+			}
+			e->type = mkpointertype(e->type, tq);
+		} else {
+			error(&tok.loc, "invalid operands to conditional operator");
+		}
+	}
+}
+
 static struct expr *
 mkoverloadexpr(struct decl *d, struct expr *l, struct expr *r)
 {
@@ -1089,56 +1128,21 @@ binaryexpr(struct scope *s, struct expr *l, int i)
 	return l;
 }
 
-static struct expr *assignexpr(struct scope *);
-
-struct expr *
-condexpr(struct scope *s)
+static struct expr *
+elseexpr(struct scope *s)
 {
-	struct expr *r, *e;
-	struct type *t, *f;
-	enum typequal tq;
+	struct expr *e, *l, *tmp;
 
-	if (!consume(TIF))
-		return assignexpr(s);
-	expect(TLPAREN, "after 'if'");
-	r = expr(s);
-	expect(TRPAREN, "after if's condition");
+	l = binaryexpr(s, NULL, 0);
+	if (!consume(TELSE))
+		return l;
+	if (!(l->type->prop & PROPSCALAR))
+		error(&tok.loc, "left operand of 'else' operator must be scalar");
 	e = mkexpr(EXPRCOND, NULL);
-	e->base = exprconvert(r, &typebool);
-	e->cond.t = expr(s);
-	expect(TELSE, "in conditional expression");
-	e->cond.f = condexpr(s);
-	t = e->cond.t->type;
-	f = e->cond.f->type;
-	if (t == f) {
-		e->type = t;
-	} else if (t->prop & PROPARITH && f->prop & PROPARITH) {
-		e->type = commonreal(&e->cond.t, &e->cond.f);
-	} else if (t == &typevoid && f == &typevoid) {
-		e->type = &typevoid;
-	} else {
-		e->cond.t = eval(e->cond.t, EVALARITH);
-		e->cond.f = eval(e->cond.f, EVALARITH);
-		if (nullpointer(e->cond.t) && f->kind == TYPEPOINTER) {
-			e->type = f;
-		} else if (nullpointer(e->cond.f) && t->kind == TYPEPOINTER) {
-			e->type = t;
-		} else if (t->kind == TYPEPOINTER && f->kind == TYPEPOINTER) {
-			tq = t->qual | f->qual;
-			t = t->base;
-			f = f->base;
-			if (t == &typevoid || f == &typevoid) {
-				e->type = &typevoid;
-			} else {
-				if (!typecompatible(t, f))
-					error(&tok.loc, "operands of conditional operator must have compatible types");
-				e->type = typecomposite(t, f);
-			}
-			e->type = mkpointertype(e->type, tq);
-		} else {
-			error(&tok.loc, "invalid operands to conditional operator");
-		}
-	}
+	e->base = exprconvert(exprtemp(&tmp, l), &typebool);
+	e->cond.t = tmp;
+	e->cond.f = elseexpr(s);
+	condunify(e);
 
 	return e;
 }
@@ -1179,7 +1183,7 @@ assignexpr(struct scope *s)
 	struct expr *e, *l, *r, *tmp, *bit;
 	enum tokenkind op;
 
-	l = binaryexpr(s, NULL, 0);
+	l = elseexpr(s);
 	if (l->kind == EXPRBINARY || l->kind == EXPRCOMMA || l->kind == EXPRCAST)
 		return l;
 	switch (tok.kind) {
@@ -1224,6 +1228,26 @@ assignexpr(struct scope *s)
 	l->base = e;
 	l->qual = e->qual;
 	return l;
+}
+
+struct expr *
+condexpr(struct scope *s)
+{
+	struct expr *r, *e;
+
+	if (!consume(TIF))
+		return assignexpr(s);
+	expect(TLPAREN, "after 'if'");
+	r = expr(s);
+	expect(TRPAREN, "after if's condition");
+	e = mkexpr(EXPRCOND, NULL);
+	e->base = exprconvert(r, &typebool);
+	e->cond.t = binaryexpr(s, NULL, 0);
+	expect(TELSE, "in conditional expression");
+	e->cond.f = condexpr(s);
+	condunify(e);
+
+	return e;
 }
 
 struct expr *

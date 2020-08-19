@@ -28,9 +28,7 @@ gotolabel(struct func *f)
 void
 stmt(struct func *f, struct scope *s)
 {
-	char *name;
 	struct expr *e, *switchcond;
-	struct type *t;
 	struct value *v, *label[4];
 	struct switchcases swtch = {0};
 	uint64_t i;
