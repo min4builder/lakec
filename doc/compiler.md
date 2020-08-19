@@ -50,9 +50,15 @@ Operator overloading:
         return [complex](a.real + b.real, a.imag + b.imag);
     }
 
-Overloadable operators are: `&`, `|`, `^`, `&&`, `||`, `+`, `-`, `*`, `/`,
-`%`, `<<`, `>>`, `==`, `!=`, `<`, `>`, `<=`, `>=`. Due to an oversight,
-unary operators are not available yet.
+These act as normal function calls.
+
+Overloadable operators are: `-`, `+`, `~`, `&`, `|`, `^`, `&&`, `||`, `+`, `-`,
+`*`, `/`, `%`, `<<`, `>>`, `==`, `!=`, `<`, `>`, `<=`, `>=`, `++` and `--`.
+They have the same ABI as in C++ (except `+` and `-`, due to a bug).
+
+Overloads for assignment operators (`<op>=`) are generated from their
+respective binary operators. Postfix `++` and `--` are generated from
+their prefix versions.
 
 Other things:
 

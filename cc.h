@@ -443,7 +443,8 @@ void emittentativedefns(void);
 
 /* mangle */
 
-char *mangleop(enum tokenkind, struct type *, struct type *);
+char *mangleuop(enum tokenkind, struct type *);
+char *manglebop(enum tokenkind, struct type *, struct type *);
 char *manglegen(enum tokenkind, struct type *);
 
 /* scope */

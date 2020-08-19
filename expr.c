@@ -189,12 +189,37 @@ nullpointer(struct expr *e)
 }
 
 static struct expr *
-mkbinaryexpr(struct location *loc, enum tokenkind op, struct expr *l, struct expr *r)
+mkoverloadexpr(struct decl *d, struct expr *l, struct expr *r)
+{
+	struct expr *f, *e;
+
+	f = mkexpr(EXPRIDENT, d->type);
+	f->qual = d->qual;
+	f->ident.decl = d;
+	f->lvalue = 0;
+	f = decay(f);
+	e = mkexpr(EXPRCALL, f->type->base->base);
+	e->base = f;
+	e->call.args = l;
+	e->call.args->next = r;
+	e->call.nargs = r ? 2 : 1;
+
+	return e;
+}
+
+static struct expr *
+mkbinaryexpr(struct scope *s, struct location *loc, enum tokenkind op, struct expr *l, struct expr *r)
 {
 	struct expr *e;
 	struct type *t = NULL;
+	struct decl *d;
 	enum typeprop lp, rp;
 
+	if (s) {
+		d = scopegetdecl(s, manglebop(op, l->type, r->type), true);
+		if (d)
+			return mkoverloadexpr(d, l, r);
+	}
 	lp = l->type->prop;
 	rp = r->type->prop;
 	switch (op) {
@@ -267,7 +292,7 @@ mkbinaryexpr(struct location *loc, enum tokenkind op, struct expr *l, struct exp
 		t = l->type;
 		if (t->base->incomplete || !(t->base->prop & PROPOBJECT))
 			error(loc, "pointer operand to '+' must be to complete object type");
-		r = mkbinaryexpr(loc, TMUL, exprconvert(r, targ->typeulong), mkconstexpr(targ->typeulong, t->base->size));
+		r = mkbinaryexpr(NULL, loc, TMUL, exprconvert(r, targ->typeulong), mkconstexpr(targ->typeulong, t->base->size));
 		break;
 	case TSUB:
 		if (lp & PROPARITH && rp & PROPARITH) {
@@ -280,7 +305,7 @@ mkbinaryexpr(struct location *loc, enum tokenkind op, struct expr *l, struct exp
 			error(loc, "pointer operand to '-' must be to complete object type");
 		if (rp & PROPINT) {
 			t = l->type;
-			r = mkbinaryexpr(loc, TMUL, exprconvert(r, targ->typeulong), mkconstexpr(targ->typeulong, t->base->size));
+			r = mkbinaryexpr(NULL, loc, TMUL, exprconvert(r, targ->typeulong), mkconstexpr(targ->typeulong, t->base->size));
 		} else {
 			if (!typecompatible(l->type->base, r->type->base))
 				error(&tok.loc, "pointer operands to '-' are to incompatible types");
@@ -291,7 +316,7 @@ mkbinaryexpr(struct location *loc, enum tokenkind op, struct expr *l, struct exp
 			e = r;
 			r = mkexpr(EXPRCAST, targ->typelong);
 			r->base = e;
-			l = mkbinaryexpr(loc, TSUB, l, r);
+			l = mkbinaryexpr(NULL, loc, TSUB, l, r);
 			r = mkconstexpr(targ->typelong, t->size);
 			op = TDIV;
 			t = targ->typelong;
@@ -671,14 +696,37 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 }
 
 static struct expr *
-mkincdecexpr(enum tokenkind op, struct expr *base, bool post)
+mkincdecexpr(struct scope *s, enum tokenkind op, struct expr *base, bool post)
 {
-	struct expr *e;
+	struct expr *e, *l, *r, *tmp1, *tmp2;
+	struct decl *d;
 
 	if (!base->lvalue)
 		error(&tok.loc, "operand of '%s' operator must be an lvalue", tokstr[op]);
+	e = mkunaryexpr(TBAND, base);
+	d = scopegetdecl(s, mangleuop(op, e->type), true);
+	if (d) {
+		/* rewrite `E OP` as `T1 = &E, T2 = *T1, OP(T1), T2`
+		   and `OP E` as `OP(&E)` */
+		if (post) {
+			l = exprtemp(&tmp1, e);
+			l->next = exprtemp(&tmp2, mkunaryexpr(TMUL, tmp1));
+			r = l->next;
+			r->next = mkoverloadexpr(d, tmp1, NULL);
+			r = r->next;
+			r->next = tmp2;
+			e = mkexpr(EXPRCOMMA, tmp2->type);
+			e->base = l;
+			e->qual = l->qual;
+		} else {
+			e = mkoverloadexpr(d, e, NULL);
+		}
+		return e;
+	}
 	if (!(base->qual & QUALMUT))
 		error(&tok.loc, "operand of '%s' operator is not mutable", tokstr[op]);
+	if (!(base->type->prop & PROPSCALAR))
+		error(&tok.loc, "operand of '%s' is not overloaded", tokstr[op]);
 	e = mkexpr(EXPRINCDEC, base->type);
 	e->op = op;
 	e->base = base;
@@ -717,7 +765,7 @@ postfixexpr(struct scope *s, struct expr *r)
 				error(&tok.loc, "array is pointer to incomplete type");
 			if (!(idx->type->prop & PROPINT))
 				error(&tok.loc, "index is not an integer type");
-			e = mkunaryexpr(TMUL, mkbinaryexpr(&tok.loc, TADD, arr, idx));
+			e = mkunaryexpr(TMUL, mkbinaryexpr(NULL, &tok.loc, TADD, arr, idx));
 			expect(TRBRACK, "after array index");
 			break;
 		case TLPAREN:  /* function call */
@@ -792,7 +840,7 @@ postfixexpr(struct scope *s, struct expr *r)
 			m = typemember(t, tok.lit, &offset);
 			if (!m)
 				error(&tok.loc, "struct/union has no member named '%s'", tok.lit);
-			r = mkbinaryexpr(&tok.loc, TADD, r, mkconstexpr(targ->typeulong, offset));
+			r = mkbinaryexpr(NULL, &tok.loc, TADD, r, mkconstexpr(targ->typeulong, offset));
 			tmp = r;
 			r = mkexpr(EXPRCAST, mkpointertype(m->type, tq | m->qual));
 			r->base = tmp;
@@ -811,7 +859,7 @@ postfixexpr(struct scope *s, struct expr *r)
 			break;
 		case TINC:
 		case TDEC:
-			e = mkincdecexpr(tok.kind, r, true);
+			e = mkincdecexpr(s, tok.kind, r, true);
 			next();
 			break;
 		default:
@@ -829,6 +877,7 @@ unaryexpr(struct scope *s)
 	enum tokenkind op;
 	struct expr *e, *l;
 	struct type *t;
+	struct decl *d;
 
 	op = tok.kind;
 	switch (op) {
@@ -836,7 +885,7 @@ unaryexpr(struct scope *s)
 	case TDEC:
 		next();
 		l = unaryexpr(s);
-		e = mkincdecexpr(op, l, false);
+		e = mkincdecexpr(s, op, l, false);
 		break;
 	case TBAND:
 	case TMUL:
@@ -845,6 +894,11 @@ unaryexpr(struct scope *s)
 	case TADD:
 		next();
 		e = castexpr(s);
+		d = scopegetdecl(s, mangleuop(TADD, e->type), true);
+		if (d) {
+			e = mkoverloadexpr(d, e, NULL);
+			break;
+		}
 		if (!(e->type->prop & PROPARITH))
 			error(&tok.loc, "operand of unary '+' operator must have arithmetic type");
 		if (e->type->prop & PROPINT)
@@ -853,26 +907,36 @@ unaryexpr(struct scope *s)
 	case TSUB:
 		next();
 		e = castexpr(s);
+		d = scopegetdecl(s, mangleuop(TSUB, e->type), true);
+		if (d) {
+			e = mkoverloadexpr(d, e, NULL);
+			break;
+		}
 		if (!(e->type->prop & PROPARITH))
 			error(&tok.loc, "operand of unary '-' operator must have arithmetic type");
 		if (e->type->prop & PROPINT)
 			e = exprpromote(e);
-		e = mkbinaryexpr(&tok.loc, TSUB, mkconstexpr(targ->typeint, 0), e);
+		e = mkbinaryexpr(s, &tok.loc, TSUB, mkconstexpr(targ->typeint, 0), e);
 		break;
 	case TBNOT:
 		next();
 		e = castexpr(s);
+		d = scopegetdecl(s, mangleuop(TBNOT, e->type), true);
+		if (d) {
+			e = mkoverloadexpr(d, e, NULL);
+			break;
+		}
 		if (!(e->type->prop & PROPINT))
 			error(&tok.loc, "operand of '~' operator must have integer type");
 		e = exprpromote(e);
-		e = mkbinaryexpr(&tok.loc, TXOR, e, mkconstexpr(e->type, -1));
+		e = mkbinaryexpr(s, &tok.loc, TXOR, e, mkconstexpr(e->type, -1));
 		break;
 	case TLNOT:
 		next();
 		e = castexpr(s);
 		if (!(e->type->prop & PROPSCALAR))
 			error(&tok.loc, "operator '!' must have scalar operand");
-		e = mkbinaryexpr(&tok.loc, TEQL, e, mkconstexpr(targ->typeint, 0));
+		e = mkbinaryexpr(s, &tok.loc, TEQL, e, mkconstexpr(targ->typeint, 0));
 		break;
 	case TSIZEOF:
 	case TALIGNOF:
@@ -970,8 +1034,7 @@ precedence(enum tokenkind t)
 static struct expr *
 binaryexpr(struct scope *s, struct expr *l, int i)
 {
-	struct expr *r, *f, *e;
-	struct decl *d;
+	struct expr *r;
 	struct location loc;
 	enum tokenkind op;
 	int j, k;
@@ -985,22 +1048,7 @@ binaryexpr(struct scope *s, struct expr *l, int i)
 		r = castexpr(s);
 		while ((k = precedence(tok.kind)) > j)
 			r = binaryexpr(s, r, k);
-		d = scopegetdecl(s, mangleop(op, l->type, r->type), 1);
-		if (d) {
-			f = mkexpr(EXPRIDENT, d->type);
-			f->qual = d->qual;
-			f->ident.decl = d;
-			f->lvalue = 0;
-			f = decay(f);
-			e = mkexpr(EXPRCALL, f->type->base->base);
-			e->base = f;
-			e->call.args = l;
-			e->call.args->next = r;
-			e->call.nargs = 2;
-			l = e;
-		} else {
-			l = mkbinaryexpr(&loc, op, l, r);
-		}
+		l = mkbinaryexpr(s, &loc, op, l, r);
 	}
 	return l;
 }
@@ -1130,7 +1178,7 @@ assignexpr(struct scope *s)
 		bit->base = l;
 		l = bit;
 	}
-	r = mkbinaryexpr(&tok.loc, op, l, r);
+	r = mkbinaryexpr(s, &tok.loc, op, l, r);
 	e->next = mkassignexpr(l, r);
 	l = mkexpr(EXPRCOMMA, l->type);
 	l->base = e;

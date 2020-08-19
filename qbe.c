@@ -233,33 +233,39 @@ funcinstn(struct func *f, int op, struct repr *repr, struct value *args[])
 
 #define funcinst(f, op, repr, ...) funcinstn(f, op, repr, (struct value *[]){__VA_ARGS__})
 
-static void
-funcalloc(struct func *f, struct decl *d)
+static struct value *
+funcalloctemp(struct func *f, struct type *t, int align)
 {
 	enum instkind op;
 	struct inst *inst;
 
-	assert(!d->type->incomplete);
-	assert(d->type->size > 0);
-	if (!d->align)
-		d->align = d->type->align;
-	else if (d->align < d->type->align)
-		error(&tok.loc, "object requires alignment %d, which is stricter than %d", d->type->align, d->align);
-	switch (d->align) {
+	assert(!t->incomplete);
+	assert(t->size > 0);
+	if (!align)
+		align = t->align;
+	else if (align < t->align)
+		error(&tok.loc, "object requires alignment %d, which is stricter than %d", t->align, align);
+	switch (align) {
 	case 1:
 	case 2:
 	case 4:  op = IALLOC4; break;
 	case 8:  op = IALLOC8; break;
 	case 16: op = IALLOC16; break;
 	default:
-		fatal("internal error: invalid alignment: %d\n", d->align);
+		fatal("internal error: invalid alignment: %d\n", align);
 	}
 	inst = xmalloc(sizeof(*inst) + sizeof(inst->arg[0]));
 	inst->kind = op;
 	functemp(f, &inst->res, &iptr);
-	inst->arg[0] = mkintconst(&i64, d->type->size);
-	d->value = &inst->res;
+	inst->arg[0] = mkintconst(&i64, t->size);
 	arrayaddptr(&f->start->insts, inst);
+	return &inst->res;
+}
+
+static void
+funcalloc(struct func *f, struct decl *d)
+{
+	d->value = funcalloctemp(f, d->type, d->align);
 }
 
 static struct value *
@@ -884,6 +890,10 @@ funcexpr(struct func *f, struct expr *e)
 	case EXPRASSIGN:
 		r = funcexpr(f, e->assign.r);
 		if (e->assign.l->kind == EXPRTEMP) {
+			if (e->assign.l->type->kind == TYPESTRUCT || e->assign.l->type->kind == TYPEUNION) {
+				lval = (struct lvalue){.addr = funcalloctemp(f, e->assign.l->type, 0)};
+				r = funcstore(f, e->assign.l->type, QUALMUT, lval, r);
+			}
 			e->assign.l->temp = r;
 		} else {
 			lval = funclval(f, e->assign.l);

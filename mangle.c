@@ -28,7 +28,7 @@ static char *optable[] = {
 	[TBOR] = "or",
 	[TLAND] = "aa",
 	[TLOR] = "oo",
-	[TELLIPSIS] = "ell",
+	[TELLIPSIS] = "el",
 	[TASSIGN] = "aS"
 };
 
@@ -138,7 +138,21 @@ mangletype(struct type **tstack, int *top, struct type *t, char *w, char *max)
 }
 
 char *
-mangleop(enum tokenkind t, struct type *t1, struct type *t2)
+mangleuop(enum tokenkind t, struct type *t1)
+{
+	static char n[65];
+	struct type *tstack[16];
+	int top = 0;
+	char *w = n;
+
+	w += snprintf(w, sizeof(n), "_Z%s", optable[t]);
+	w = mangletype(tstack, &top, t1, w, n + sizeof(n) - 1);
+	*w = '\0';
+	return n;
+}
+
+char *
+manglebop(enum tokenkind t, struct type *t1, struct type *t2)
 {
 	static char n[65];
 	struct type *tstack[16];

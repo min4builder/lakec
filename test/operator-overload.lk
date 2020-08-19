@@ -4,9 +4,14 @@ struct a(x, y int);
 	return [struct a](x.x + y.x, x.y + y.y);
 }
 
+.++(x *mut struct a) void {
+	*x += [struct a](1, 1);
+}
+
 f() void {
 	auto x struct a = (6, 6);
 	auto y struct a = (7, 7);
-	auto z = x + y;
+	auto z mut = x + y;
+	auto w = z++;
 }
 
