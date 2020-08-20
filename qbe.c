@@ -739,8 +739,6 @@ funcexpr(struct func *f, struct expr *e)
 		op = e->base->type->base->func.isvararg ? IVACALL : ICALL;
 		v = funcinstn(f, op, e->type == &typevoid ? NULL : e->type->repr, argvals);
 		free(argvals);
-		//if (e->base->type->base->func.isnoreturn)
-		//	funcret(f, NULL);
 		return v;
 	case EXPRUNARY:
 		switch (e->op) {
@@ -881,6 +879,8 @@ funcexpr(struct func *f, struct expr *e)
 		funclabel(f, label[2]);
 		if (e->type == &typevoid)
 			return NULL;
+		if (e->cond.f->type == &typevoid)
+			return l;
 		return funcinst(f, IPHI, e->type->repr, label[3], l, label[4], r, NULL);
 	case EXPRASSIGN:
 		r = funcexpr(f, e->assign.r);

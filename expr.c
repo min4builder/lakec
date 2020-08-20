@@ -202,6 +202,8 @@ condunify(struct expr *e)
 		e->type = commonreal(&e->cond.t, &e->cond.f);
 	} else if (t == &typevoid && f == &typevoid) {
 		e->type = &typevoid;
+	} else if (e->cond.f->kind == EXPRJUMP || e->cond.f->kind == EXPRRET) {
+		e->type = t;
 	} else {
 		e->cond.t = eval(e->cond.t, EVALARITH);
 		e->cond.f = eval(e->cond.f, EVALARITH);

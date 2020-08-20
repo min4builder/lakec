@@ -1,0 +1,14 @@
+function w $f() {
+@start.1
+@body.2
+	%.1 =w cnew 0, 0
+	jnz %.1, @cond_true.4, @cond_false.5
+@cond_true.4
+	jmp @cond_join.6
+@cond_false.5
+	jmp @a.3
+@cond_join.6
+	ret 0
+@a.3
+	ret 1
+}

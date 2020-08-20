@@ -1,0 +1,6 @@
+f() int {
+	return 0 else goto a;
+a:
+	return 1;
+}
+
