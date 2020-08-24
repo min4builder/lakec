@@ -157,6 +157,10 @@ Currently, mostly the same as C, except:
     0 else 32 /* return first if nonzero, second otherwise */
     /* break, continue, goto and return are expressions */
 
+Stopgap solutions (that will be replaced in the future):
+
+    e->auto x (...) /* e is bound to x inside ... */
+
 ## Built-in functions and macros
 
 - `alloca(size ulong) *mut void`: Allocate memory on the stack.

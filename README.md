@@ -34,7 +34,7 @@ Features:
 - Operator overloading (useful mainly for games)
 - Simple type inference, some structural typing and other convenience features
 - Postfix type syntax (similar to Go but a bit shorter)
-- Macros (for language extension only)
+- Macros (for language extension, not constants)
 - Explicit memory management (but (unimplemented) the compiler checks
   that you didn't make any obvious mistake)
 - Flexible memory management (stack allocation, (unimplemented, but not

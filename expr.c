@@ -780,9 +780,11 @@ postfixexpr(struct scope *s, struct expr *r)
 	struct expr *e, *arr, *idx, *tmp, **end;
 	struct type *t;
 	struct param *p;
+	struct decl *d;
 	struct member *m;
 	uint64_t offset;
 	enum typequal tq;
+	char *name;
 	bool lvalue;
 
 	if (!r)
@@ -857,6 +859,28 @@ postfixexpr(struct scope *s, struct expr *r)
 					/* XXX HACK FIXME */
 					e->type = t;
 				}
+				break;
+			} else if (consume(TAUTO)) {
+				if (tok.kind != TIDENT)
+					error(&tok.loc, "expected identifier");
+				name = tok.lit;
+				next();
+				expect(TLPAREN, "on auto expression");
+				s = mkscope(s);
+				d = mkdecl(DECLOBJECT, r->type, QUALNONE, LINKNONE);
+				scopeputdecl(s, name, d);
+				funcinit(s->func, d, NULL);
+				e = mkexpr(EXPRIDENT, r->type);
+				e->qual = QUALMUT;
+				e->lvalue = true;
+				e->ident.decl = d;
+				r = mkassignexpr(e, r);
+				e = expr(s);
+				r->next = e;
+				e = mkexpr(EXPRCOMMA, e->type);
+				e->base = r;
+				expect(TRPAREN, "after auto expression");
+				s = delscope(s);
 				break;
 			}
 			error(&tok.loc, "'->' not implemented yet");
