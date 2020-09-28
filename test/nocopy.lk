@@ -1,0 +1,12 @@
+g(_ *mut int) void;
+h(_ #nocopy *mut int) void;
+
+f() void {
+	auto x mut int = 0;
+	auto y #nocopy *mut int;
+	*y = 1;
+	*y = 2;
+	g(y);
+	h(y);
+}
+

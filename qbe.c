@@ -13,6 +13,7 @@
 struct name {
 	char *str;
 	uint64_t id;
+	struct value *lval;
 };
 
 struct repr {
@@ -30,6 +31,8 @@ struct value {
 		VALTEMP,
 	} kind;
 	struct repr *repr;
+	enum typequal qual;
+	int uses;
 	union {
 		struct name name;
 		uint64_t i;
@@ -188,6 +191,8 @@ functemp(struct func *f, struct value *v, struct repr *repr)
 	if (!repr)
 		fatal("temp has no type");
 	v->kind = VALTEMP;
+	v->qual = 0;
+	v->uses = 0;
 	funcname(f, &v->name, NULL);
 	v->repr = repr;
 }
@@ -234,7 +239,7 @@ funcinstn(struct func *f, int op, struct repr *repr, struct value *args[])
 #define funcinst(f, op, repr, ...) funcinstn(f, op, repr, (struct value *[]){__VA_ARGS__})
 
 static struct value *
-funcalloctemp(struct func *f, struct type *t, int align)
+funcalloctemp(struct func *f, enum typequal tq, struct type *t, int align)
 {
 	enum instkind op;
 	struct inst *inst;
@@ -257,6 +262,7 @@ funcalloctemp(struct func *f, struct type *t, int align)
 	inst = xmalloc(sizeof(*inst) + sizeof(inst->arg[0]));
 	inst->kind = op;
 	functemp(f, &inst->res, &iptr);
+	inst->res.qual = tq;
 	inst->arg[0] = mkintconst(&i64, t->size);
 	arrayaddptr(&f->start->insts, inst);
 	return &inst->res;
@@ -265,7 +271,7 @@ funcalloctemp(struct func *f, struct type *t, int align)
 static void
 funcalloc(struct func *f, struct decl *d)
 {
-	d->value = funcalloctemp(f, d->type, d->align);
+	d->value = funcalloctemp(f, d->qual, d->type, d->align);
 }
 
 static struct value *
@@ -290,6 +296,8 @@ funcstore(struct func *f, struct type *t, enum typequal tq, struct lvalue lval, 
 		error(&tok.loc, "volatile store is not yet supported");
 	if (!(tq & QUALMUT))
 		error(&tok.loc, "cannot store to immutable object");
+	if (v->name.lval && tq & v->name.lval->qual & QUALNOCOPY && v->name.lval->uses++ > 0)
+		error(&tok.loc, "nocopy object used more than once");
 	tp = t->prop;
 	assert(!lval.bits.before && !lval.bits.after || tp & PROPINT);
 	r = v;
@@ -379,6 +387,9 @@ funcload(struct func *f, struct type *t, struct lvalue lval)
 		}
 	}
 	v = funcinst(f, op, t->repr, lval.addr);
+	v->name.lval = lval.addr;
+	if (lval.addr->qual & QUALNOCOPY && v->name.lval->uses > 0)
+		error(&tok.loc, "nocopy object used after being moved");
 	return funcbits(f, t, v, lval.bits);
 }
 
@@ -463,7 +474,7 @@ extend(struct func *f, struct type *t, struct value *v)
 }
 
 static struct value *
-convert(struct func *f, struct type *dst, struct type *src, struct value *l)
+convert(struct func *f, enum typequal dtq, struct type *dst, enum typequal stq, struct type *src, struct value *l)
 {
 	enum instkind op;
 	struct value *r = NULL;
@@ -515,7 +526,10 @@ convert(struct func *f, struct type *dst, struct type *src, struct value *l)
 		}
 	}
 
-	return funcinst(f, op, dst->repr, l, r);
+	r = funcinst(f, op, dst->repr, l, r);
+	if (dtq & stq & QUALNOCOPY)
+		r->name.lval = l->name.lval;
+	return r;
 }
 
 struct func *
@@ -550,7 +564,7 @@ mkfunc(struct decl *decl, char *name, struct type *t, struct scope *s)
 			*d->value = *p->value;
 			d->value->repr = &iptr;
 		} else {
-			v = typecompatible(p->type, pt) ? p->value : convert(f, pt, p->type, p->value);
+			v = typecompatible(p->type, pt) ? p->value : convert(f, p->qual, pt, p->qual, p->type, p->value);
 			funcinit(f, d, NULL);
 			funcstore(f, p->type, QUALMUT, (struct lvalue){d->value}, v);
 		}
@@ -733,7 +747,10 @@ funcexpr(struct func *f, struct expr *e)
 		emittype(e->type);
 		for (argval = &argvals[1], arg = e->call.args; arg; ++argval, arg = arg->next) {
 			emittype(arg->type);
-			*argval = funcexpr(f, arg);
+			v = funcexpr(f, arg);
+			if (v->name.lval && v->name.lval->qual & QUALNOCOPY && v->name.lval->uses++ > 0)
+				error(&tok.loc, "nocopy object used more than once");
+			*argval = v;
 		}
 		*argval = NULL;
 		op = e->base->type->base->func.isvararg ? IVACALL : ICALL;
@@ -753,7 +770,7 @@ funcexpr(struct func *f, struct expr *e)
 		break;
 	case EXPRCAST:
 		l = funcexpr(f, e->base);
-		return convert(f, e->type, e->base->type, l);
+		return convert(f, e->qual, e->type, e->base->qual, e->base->type, l);
 	case EXPRBINARY:
 		if (e->op == TLOR || e->op == TLAND) {
 			label[0] = mkblock("logic_right");
@@ -886,7 +903,7 @@ funcexpr(struct func *f, struct expr *e)
 		r = funcexpr(f, e->assign.r);
 		if (e->assign.l->kind == EXPRTEMP) {
 			if (e->assign.l->type->kind == TYPESTRUCT || e->assign.l->type->kind == TYPEUNION) {
-				lval = (struct lvalue){.addr = funcalloctemp(f, e->assign.l->type, 0)};
+				lval = (struct lvalue){funcalloctemp(f, QUALMUT, e->assign.l->type, 0)};
 				r = funcstore(f, e->assign.l->type, QUALMUT, lval, r);
 			}
 			e->assign.l->temp = r;

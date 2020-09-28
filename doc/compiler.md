@@ -125,6 +125,17 @@ and is in general more useful, but it does make `mut` mandatory.
 
 `volatile` also works as in C.
 
+`#nocopy` can be used to say a value must be used AT MOST once.
+This gives it "move semantics" more or less as in Rust:
+
+    auto x #nocopy *int = malloc(sizeof[int]);
+    *x = 1;
+    pub f(_ *int) void;
+    f(x); /* casting to a copiable reference works */
+    pub free(_ #nocopy *void) void;
+    free(x); /* now x can't be used anymore */
+    free(x); /* will error */
+
 ## Statements
 
 Currently, mostly the same as C, except for declarations and:

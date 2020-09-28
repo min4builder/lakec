@@ -92,6 +92,15 @@ typequal(enum typequal *tq)
 	case TMUT:      *tq |= QUALMUT;    break;
 	case TVOLATILE: *tq |= QUALVOLATILE; break;
 	case TRESTRICT: *tq |= QUALRESTRICT; break;
+	case THASH:
+		next();
+		if (tok.kind != TIDENT)
+			error(&tok.loc, "expecting identifier");
+		if (!strcmp("nocopy", tok.lit))
+			*tq |= QUALNOCOPY;
+		else if (!strcmp("nodrop", tok.lit))
+			*tq |= QUALNODROP;
+		break;
 	default: return 0;
 	}
 	next();

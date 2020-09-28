@@ -122,6 +122,8 @@ enum typequal {
 	QUALRESTRICT = 1<<2,
 	QUALVOLATILE = 1<<3,
 	QUALATOMIC   = 1<<4,
+	QUALNOCOPY   = 1<<5,
+	QUALNODROP   = 1<<6,
 };
 
 enum typekind {
@@ -473,7 +475,7 @@ uint64_t intconstexpr(struct scope *, _Bool);
 void delexpr(struct expr *);
 
 struct expr *mkassignexpr(struct expr *, struct expr *);
-struct expr *exprconvert(struct expr *, struct type *);
+struct expr *exprconvert(struct expr *, enum typequal, struct type *);
 struct expr *exprtemp(struct expr **, struct expr *);
 struct expr *exprpromote(struct expr *);
 
