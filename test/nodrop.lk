@@ -1,0 +1,8 @@
+f(_ #nodrop *int) void;
+
+g() void {
+	auto x int = 0;
+	auto y #nodrop *int = &x;
+	f(y);
+}
+

@@ -1,0 +1,13 @@
+function $g() {
+@start.1
+	%.1 =l alloc4 4
+	%.3 =l alloc8 8
+@body.2
+	%.2 =l add %.1, 0
+	storew 0, %.2
+	%.4 =l add %.3, 0
+	storel %.1, %.4
+	%.5 =l loadl %.3
+	call $f(l %.5)
+	ret
+}

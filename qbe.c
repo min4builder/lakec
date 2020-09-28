@@ -296,8 +296,11 @@ funcstore(struct func *f, struct type *t, enum typequal tq, struct lvalue lval, 
 		error(&tok.loc, "volatile store is not yet supported");
 	if (!(tq & QUALMUT))
 		error(&tok.loc, "cannot store to immutable object");
-	if (v->name.lval && tq & v->name.lval->qual & QUALNOCOPY && v->name.lval->uses++ > 0)
-		error(&tok.loc, "nocopy object used more than once");
+	if (v->name.lval && tq & v->name.lval->qual & (QUALNOCOPY | QUALNODROP)) {
+		v->name.lval->uses++;
+		if (v->name.lval->qual & QUALNOCOPY && v->name.lval->uses > 1)
+			error(&tok.loc, "nocopy object used more than once");
+	}
 	tp = t->prop;
 	assert(!lval.bits.before && !lval.bits.after || tp & PROPINT);
 	r = v;
@@ -748,8 +751,11 @@ funcexpr(struct func *f, struct expr *e)
 		for (argval = &argvals[1], arg = e->call.args; arg; ++argval, arg = arg->next) {
 			emittype(arg->type);
 			v = funcexpr(f, arg);
-			if (v->name.lval && v->name.lval->qual & QUALNOCOPY && v->name.lval->uses++ > 0)
-				error(&tok.loc, "nocopy object used more than once");
+			if (v->name.lval && v->name.lval->qual & (QUALNOCOPY | QUALNODROP)) {
+				v->name.lval->uses++;
+				if (v->name.lval->qual & QUALNOCOPY && v->name.lval->uses > 1)
+					error(&tok.loc, "nocopy object used more than once");
+			}
 			*argval = v;
 		}
 		*argval = NULL;
@@ -1167,6 +1173,8 @@ emitinst(struct inst *inst)
 	putchar('\t');
 	assert(inst->kind < LEN(instdesc));
 	if (instdesc[inst->kind].ret && inst->res.kind) {
+		if (inst->res.name.lval && inst->res.name.lval->qual & QUALNODROP && inst->res.name.lval->uses == 0)
+			error(&tok.loc, "nodrop value dropped");
 		emitvalue(&inst->res);
 		fputs(" =", stdout);
 		emitrepr(inst->res.repr, inst->kind == ICALL || inst->kind == IVACALL, false);

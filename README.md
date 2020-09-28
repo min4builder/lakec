@@ -1,4 +1,4 @@
-# Lake is C but better
+# Lake is C but sweeter
 
 Lake is a new programming language, meant to replace C for the author
 personally, as a kernel- and game-development tool, and also to be
@@ -35,8 +35,8 @@ Features:
 - Simple type inference, some structural typing and other convenience features
 - Postfix type syntax (similar to Go but a bit shorter)
 - Macros (for language extension, not constants)
-- Explicit memory management (but (unimplemented) the compiler checks
-  that you didn't make any obvious mistake)
+- Explicit memory management (but the compiler checks that you didn't make
+  any obvious mistake)
 - Flexible memory management (stack allocation, (unimplemented, but not
   too far away) reference counting, arenas, garbage collection etc.)
 - Well-specified and nice type names (u8/i16 type, plus int for a machine
@@ -51,8 +51,6 @@ Future features:
 
 - Generics (partially designed, can do some of it with macros)
 - Easier error management (return values, with a twist!)
-- Checked memory management (like Rust, but less strict; mostly to catch
-  forgetting to `drop()` or duplicating ownership of a pointer)
 - Proper modularity (with headers, but no global namespace pollution)
 - Standard build system, to avoid proliferation of Make, autoconf, CMake,
   Meson, SCons, Waf etc.

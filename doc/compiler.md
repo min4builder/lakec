@@ -136,6 +136,16 @@ This gives it "move semantics" more or less as in Rust:
     free(x); /* now x can't be used anymore */
     free(x); /* will error */
 
+`#nodrop` can be used to say a value must be used AT LEAST once.
+This prevents it from being thrown away without proper handling:
+
+    free(_ #nodrop *void) void;
+    auto x #nodrop *int = malloc(sizeof(*x));
+    /* if you forget to free(x), there will be an error */
+
+Both `#nocopy` and `#nodrop` can be combined to make a linear type of sorts.
+However, the tracking isn't exact. There are some holes around compound types.
+
 ## Statements
 
 Currently, mostly the same as C, except for declarations and:

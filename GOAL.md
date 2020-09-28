@@ -75,7 +75,19 @@ C, with:
       define c[T] = *T;
       a(x c int);
 
-- type-safe & lw generics (half-done, no real syntax)
+- easier resource management
+
+      define own[T] = #nocopy #nodrop T;
+      define alloc[T] = (alloc_(sizeof[T])->[own *T]);
+      alloc_(_ ulong) own *void;
+      free(_ own *void) void;
+
+      auto x = alloc[int];
+      auto y = x;
+      free(y); /* if you remove this line, #nodrop will error */
+      /* free(x); */ /* if you uncomment this line, #nocopy will error */
+
+- type-safe & lw generics (WIP, no real syntax)
 
       define Vec[T] = struct(len, cap, size ulong, vec *T);
       a Vec int = (0, 0, sizeof[int], 0);
@@ -86,7 +98,7 @@ C, with:
           return [Vec void](0, 0, size, 0);
       }
 
-- easier error handling (switch/continue WIP, result)
+- easier error handling (switch/continue DONE, result)
 
       switch (0) {
       case 0:
@@ -102,7 +114,6 @@ C, with:
           puts("I don't know that error");
       }
 
-- easier res management (copy, move & drop)
 - good language extension system (macros, decls, attrs)
 - good standard library (plan 9-inspired, with threading, graphics, etc.)
 
