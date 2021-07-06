@@ -869,7 +869,7 @@ postfixexpr(struct scope *s, struct expr *r)
 				s = mkscope(s);
 				d = mkdecl(DECLOBJECT, r->type, QUALNONE, LINKNONE);
 				scopeputdecl(s, name, d);
-				funcinit(s->func, d, NULL);
+				funcinit(s->func, d, NULL, name);
 				e = mkexpr(EXPRIDENT, r->type);
 				e->qual = QUALMUT;
 				e->lvalue = true;

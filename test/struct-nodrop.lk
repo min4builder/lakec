@@ -1,0 +1,7 @@
+struct a (
+	a, b #nodrop int
+);
+f(x #nodrop a) void {
+	auto y #nodrop a;
+	0;
+}

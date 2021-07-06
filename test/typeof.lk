@@ -1,7 +1,7 @@
 f(_*char) int;
 f, g typeof(f);
 
-x typeof(g(0));
+x typeof(g(0->[*char]));
 x int;
 
 t *int;

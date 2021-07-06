@@ -14,18 +14,17 @@ for test ; do
 	name=${test%.lk}
 	if [ -f "$name.qbe" ] ; then
 		want=$name.qbe
-		set -- $LCQBE -o "$got" "$test"
+		set -- $LCQBE "$test"
 	elif [ -f "$name.pp" ] ; then
 		want=$name.pp
-		set -- $LCQBE -E -I test/ -o "$got" "$test"
+		set -- $LCQBE -E -I test/ "$test"
 	else
 		echo "invalid test '$test'" >&2
 		set -- false
 	fi
-	if "$@" && diff -Nu "$want" "$got" ; then
+	if "$@" >"$got" 2>&1; diff -u "$want" "$got"; then
 		result="PASS"
 	else
-		[ $? -gt 128 ] && cat "$got"
 		result="FAIL"
 		numfail=$((numfail + 1))
 	fi

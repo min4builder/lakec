@@ -46,7 +46,7 @@ Multiple variables with the same type may be declared at once:
 
 Operator overloading:
 
-    .+(a, b complex) {
+    .+(a, b complex) complex {
         return [complex](a.real + b.real, a.imag + b.imag);
     }
 
@@ -110,11 +110,11 @@ Tagless structs and unions are structurally typed:
     struct a(x, y int);
     struct b(x, y int);
     typedef c struct(a, b int);
-    /* c is compatible between a and b, but a and b are not compatible
-       between each other. Note the field names are different */
+    /* c is compatible with both a and b, but a and b are not compatible with
+       each other. Notice the field names are different */
 
 In C, `const` can be used to indicate that something will not be changed.
-In Lake, `mut` must be used to indicate that something *will* be changed.
+In Lake, `mut` must be used to indicate that something *may* be changed.
 This means you don't have to smear `const` markers all over the codebase,
 and is in general more useful, but it does make `mut` mandatory.
 
@@ -133,8 +133,9 @@ This gives it "move semantics" more or less as in Rust:
     pub f(_ *int) void;
     f(x); /* casting to a copiable reference works */
     pub free(_ #nocopy *void) void;
-    free(x); /* now x can't be used anymore */
-    free(x); /* will error */
+    free(x);
+    /* now x can't be used anymore */
+    /* free(x); */ /* will error */
 
 `#nodrop` can be used to say a value must be used AT LEAST once.
 This prevents it from being thrown away without proper handling:
@@ -144,7 +145,8 @@ This prevents it from being thrown away without proper handling:
     /* if you forget to free(x), there will be an error */
 
 Both `#nocopy` and `#nodrop` can be combined to make a linear type of sorts.
-However, the tracking isn't exact. There are some holes around compound types.
+The tracking is *not* perfect and it might miss something.
+There should be no false positives, at least.
 
 ## Statements
 

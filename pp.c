@@ -131,10 +131,8 @@ static void
 macrodone(struct macro *m)
 {
 	m->hide = false;
-	if ((m->kind == MACROFUNC || m->kind == MACROTYPEFUNC) && m->nparam > 0) {
-		free(m->arg[0].token);
+	if ((m->kind == MACROFUNC || m->kind == MACROTYPEFUNC) && m->nparam > 0)
 		free(m->arg);
-	}
 	--macrodepth;
 }
 
@@ -336,7 +334,7 @@ undef(void)
 	void **entry;
 	struct macro *m;
 
-	name = tokencheck(&tok, TIDENT, "after #undef");
+	name = tokencheck(&tok, TIDENT, "after undef");
 	mapkey(&k, name, strlen(name));
 	entry = mapput(macros, &k);
 	m = *entry;
@@ -615,7 +613,6 @@ keyword(struct token *tok)
 		mid = (low + high) / 2;
 		cmp = strcmp(tok->lit, keywords[mid].name);
 		if (cmp == 0) {
-			free(tok->lit);
 			tok->kind = keywords[mid].value;
 			tok->lit = NULL;
 			break;
@@ -634,9 +631,9 @@ next(void)
 
 	do t = rawnext();
 	while (expand(t) || t->kind == TNEWLINE && !(ppflags & PPNEWLINE));
-	if (t->kind == TIDENT)
-		keyword(t);
 	tok = *t;
+	if (tok.kind == TIDENT)
+		keyword(&tok);
 }
 
 bool

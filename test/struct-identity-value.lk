@@ -1,16 +1,16 @@
 typedef a struct (
 	a, b, c int,
-	etc []char,
+	etc mut []char,
 );
 
 typedef b struct (
-	d, e, f mut int,
-	etc []char,
+	d, e, f int,
+	etc mut []char,
 );
 
 struct c (
 	g, h, i int,
-	blah []char,
+	blah mut []char,
 );
 
 f() void {

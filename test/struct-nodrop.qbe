@@ -1,0 +1,5 @@
+type :a.1 = { w, w, }
+test/struct-nodrop.lk:8:2: error: nodrop value 'y' dropped
+function $f(:a.1 %.1) {
+@start.1
+	

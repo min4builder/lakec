@@ -146,8 +146,10 @@ typecompatible(struct type *t1, struct type *t2)
 			return false;
 		if (t1->size != t2->size)
 			return false;
+		if (t1->qual != t2->qual)
+			return false;
 		for (m1 = t1->structunion.members, m2 = t2->structunion.members; m1 && m2; m1 = m1->next, m2 = m2->next) {
-			if (!(typecompatible(m1->type, m2->type) && m1->offset == m2->offset))
+			if (!(m1->qual == m2->qual && m1->offset == m2->offset && typecompatible(m1->type, m2->type)))
 				return false;
 		}
 		if (m1 || m2)
@@ -164,7 +166,7 @@ typecompatible(struct type *t1, struct type *t2)
 			return true;
 		}
 		for (p1 = t1->func.params, p2 = t2->func.params; p1 && p2; p1 = p1->next, p2 = p2->next) {
-			if (!typecompatible(p1->type, p2->type))
+			if (!(p1->qual == p2->qual && typecompatible(p1->type, p2->type)))
 				return false;
 		}
 		if (p1 || p2)
@@ -181,7 +183,9 @@ typeconvertible(struct type *t1, struct type *t2)
 {
 	if (t1->prop & PROPSCALAR && t2->kind == TYPEBOOL)
 		return true;
-	if (t1->prop & (PROPINT | PROPFLOAT) && t2->prop & (PROPINT | PROPFLOAT))
+	if (t1->prop & (PROPINT | PROPFLOAT) && t2->prop & PROPFLOAT)
+		return true;
+	if (t1->prop & PROPINT && t2->prop & PROPINT)
 		return true;
 	if (t1->kind == TYPEPOINTER && t2->kind == TYPEPOINTER) {
 		if (t1->base->kind == TYPEVOID || t2->base->kind == TYPEVOID)
@@ -189,8 +193,6 @@ typeconvertible(struct type *t1, struct type *t2)
 		if ((t1->qual & t2->qual) == t1->qual && typesame(t1->base, t2->base))
 			return true;
 	}
-	if (t1->prop & PROPINT && t2->kind == TYPEPOINTER)
-		return true;
 	if (t1->kind == TYPEARRAY && t2->kind == TYPEPOINTER && typesame(t1->base, t2->base))
 		return true;
 	if (t2->kind == TYPEVOID)

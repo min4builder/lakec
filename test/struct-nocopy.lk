@@ -1,0 +1,11 @@
+struct a (
+	a, b #nocopy int
+);
+
+f() void {
+	auto a a;
+	auto b mut a;
+	auto c mut a;
+	b = a;
+	c = a;
+}

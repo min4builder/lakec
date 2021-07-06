@@ -172,6 +172,7 @@ tagspec(struct scope *s)
 			t->repr = &i64; // XXX
 			t->size = 0;
 			t->align = 0;
+			t->qual = QUALNONE;
 			t->structunion.tag = tag;
 			t->structunion.members = NULL;
 		}
@@ -607,6 +608,7 @@ addmember(struct structbuilder *b, struct qualtype mt, char *name, int align, ui
 		m = xmalloc(sizeof(*m));
 		m->type = mt.type;
 		m->qual = mt.qual;
+		t->qual |= m->qual & (QUALNOCOPY | QUALNODROP);
 		m->name = name;
 		m->next = NULL;
 		*b->last = m;
@@ -880,7 +882,7 @@ decl(struct scope *s, struct func *f, bool instmt)
 				if (d->linkage != LINKNONE || sc & SCSTATIC)
 					emitdata(d, init);
 				else
-					funcinit(f, d, init);
+					funcinit(f, d, init, name);
 				d->defined = true;
 				if (d->tentative.next)
 					listremove(&d->tentative);

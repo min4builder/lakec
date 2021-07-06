@@ -1,0 +1,1 @@
+test/struct-nocopy.lk:10:8: error: nocopy object 'a' used more than once

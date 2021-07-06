@@ -3,5 +3,5 @@ pub main() int {
 
 	while (x)
 		x /= 2;
-	return x;
+	return x->[int];
 }

@@ -1,4 +1,4 @@
 g() f32;
 f() u64 {
-	return g();
+	return g()->[u64];
 }
