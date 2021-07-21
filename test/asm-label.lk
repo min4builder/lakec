@@ -1,5 +1,7 @@
-x int asm("y");
+#[name "y"]
+x int;
 x int = 2;
 
-f() void asm("g");
+#[name "g"]
+f() void;
 f() void {}

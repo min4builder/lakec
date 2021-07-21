@@ -30,7 +30,6 @@ enum funcspec {
 	FUNCNONE,
 
 	FUNCINLINE   = 1<<1,
-	FUNCNORETURN = 1<<2,
 };
 
 struct structbuilder {
@@ -41,7 +40,7 @@ struct structbuilder {
 
 struct declbuilder {
 	struct list list;
-	char *name;
+	char *name, *asmname;
 	uint64_t width;
 };
 
@@ -86,20 +85,47 @@ storageclass(enum storageclass *sc)
 
 /* 6.7.3 Type qualifiers */
 static int
-typequal(enum typequal *tq)
+typequal(enum typequal *tq, struct scope *s, int *align)
 {
+	struct type *t;
+	uint64_t i;
+	bool isbrack = false;
+
 	switch (tok.kind) {
 	case TMUT:      *tq |= QUALMUT;    break;
-	case TVOLATILE: *tq |= QUALVOLATILE; break;
-	case TRESTRICT: *tq |= QUALRESTRICT; break;
 	case THASH:
 		next();
+		if (tok.kind == TLBRACK) {
+			isbrack = true;
+			next();
+		}
 		if (tok.kind != TIDENT)
 			error(&tok.loc, "expecting identifier");
 		if (!strcmp("nocopy", tok.lit))
 			*tq |= QUALNOCOPY;
 		else if (!strcmp("nodrop", tok.lit))
 			*tq |= QUALNODROP;
+		else if (!strcmp("volatile", tok.lit))
+			*tq |= QUALVOLATILE;
+		else if (!strcmp("restrict", tok.lit))
+			*tq |= QUALRESTRICT;
+		else if (isbrack && !strcmp("align", tok.lit)) {
+			if (!align)
+				error(&tok.loc, "alignment specifier not allowed in this declaration");
+			next();
+			t = typename(s, NULL);
+			if (t) {
+				*align = t->align;
+			} else {
+				i = intconstexpr(s, false);
+				if (!i || i & (i - 1) || i > 16)
+					error(&tok.loc, "invalid alignment: %d", i);
+				*align = (int)i;
+			}
+			expect(TRBRACK, "to close pragma 'align'");
+			return 1;
+		} else
+			error(&tok.loc, "unknown pragma");
 		break;
 	default: return 0;
 	}
@@ -116,7 +142,6 @@ funcspec(enum funcspec *fs)
 
 	switch (tok.kind) {
 	case TINLINE:   new = FUNCINLINE;   break;
-	case TNORETURN: new = FUNCNORETURN; break;
 	default: return 0;
 	}
 	if (!fs)
@@ -255,7 +280,7 @@ decltype(struct scope *s, int *align)
 	if (align)
 		*align = 0;
 	for (;;) {
-		if (typequal(tq))
+		if (typequal(tq, s, align))
 			continue;
 		switch (tok.kind) {
 		/* 6.7.2 Type specifiers */
@@ -320,7 +345,6 @@ decltype(struct scope *s, int *align)
 			*t = mktype(TYPEFUNC, PROPDERIVED);
 			(*t)->qual = QUALNONE;
 			(*t)->func.isvararg = false;
-			(*t)->func.isnoreturn = false;
 			(*t)->func.params = NULL;
 			p = &(*t)->func.params;
 			if (tok.kind != TRPAREN) {
@@ -340,24 +364,6 @@ decltype(struct scope *s, int *align)
 			(*t)->func.paraminfo = true;
 			tq = &(*t)->qual;
 			t = &(*t)->base;
-			break;
-
-		/* 6.7.5 Alignment specifier */
-		case TALIGNAS:
-			if (!align)
-				error(&tok.loc, "alignment specifier not allowed in this declaration");
-			next();
-			expect(TLPAREN, "after 'alignas'");
-			other = typename(s, NULL);
-			if (other) {
-				*align = other->align;
-			} else {
-				i = intconstexpr(s, false);
-				if (!i || i & (i - 1) || i > 16)
-					error(&tok.loc, "invalid alignment: %d", i);
-				*align = (int)i;
-			}
-			expect(TRPAREN, "to close 'alignas' specifier");
 			break;
 
 		default:
@@ -407,13 +413,14 @@ finish:
 }
 
 static struct declbuilder *
-mkdeclbuilder(char *name, uint64_t width)
+mkdeclbuilder(char *name, char *asmname, uint64_t width)
 {
 	struct declbuilder *db;
 
 	db = xmalloc(sizeof(*db));
 	memset(db, 0, sizeof(*db));
 	db->name = name;
+	db->asmname = asmname;
 	db->width = width;
 
 	return db;
@@ -428,7 +435,7 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 	struct declbuilder *cur;
 	enum tokenkind overload = TNONE;
 	enum typequal tq;
-	char *name;
+	char *name, *asmname = 0;
 	int64_t width;
 
 	t = NULL;
@@ -441,6 +448,19 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 	if (sc && !*sc && needsc)
 		return (struct qualtype){NULL, QUALNONE};
 
+	if (tok.kind == THASH) {
+		next();
+		expect(TLBRACK, "for declaration pragma");
+		if (tok.kind != TIDENT)
+			error(&tok.loc, "expected identifier");
+		if (!strcmp("name", tok.lit)) {
+			next();
+			asmname = expect(TSTRINGLIT, "for external name");
+			expect(TRBRACK, "to close pragma 'name'");
+		} else
+			error(&tok.loc, "unknown pragma");
+	}
+
 	switch (tok.kind) {
 	case TIDENT:
 		do {
@@ -450,7 +470,7 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 			next();
 			width = -1;
 			if (consume(TCOLON)) {
-				typequal(&tq);
+				typequal(&tq, s, align);
 				width = intconstexpr(s, true);
 				if (width < 0) {
 					width = -width;
@@ -465,7 +485,7 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 				qt.type = t;
 				qt.qual = tq;
 			}
-			cur = mkdeclbuilder(name, width);
+			cur = mkdeclbuilder(name, asmname, width);
 			listinsert(db->prev, &cur->list);
 			if (width != -1)
 				return qt;
@@ -517,7 +537,6 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 		t = mktype(TYPEFUNC, PROPDERIVED);
 		t->qual = QUALNONE;
 		t->func.isvararg = false;
-		t->func.isnoreturn = false;
 		t->func.params = NULL;
 		p = &t->func.params;
 		if (tok.kind != TRPAREN) {
@@ -534,7 +553,7 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 		expect(TRPAREN, "to close function declarator");
 		t->func.paraminfo = t->func.params || tok.kind == TLBRACE;
 		if (overload) {
-			cur = mkdeclbuilder(manglegen(overload, t), -1);
+			cur = mkdeclbuilder(manglegen(overload, t), 0, -1);
 			listinsert(db->prev, &cur->list);
 		}
 	} else if (overload)
@@ -822,18 +841,11 @@ decl(struct scope *s, struct func *f, bool instmt)
 	t = qt.type;
 	tq = qt.qual;
 	kind = t && t->kind == TYPEFUNC ? DECLFUNC : DECLOBJECT;
-	if (consume(TASM)) {
-		expect(TLPAREN, "after asm");
-		asmname = expect(TSTRINGLIT, "for assembler name");
-		expect(TRPAREN, "after assembler name");
-		allowfunc = 0;
-	} else {
-		asmname = NULL;
-	}
 	initialize = kind == DECLOBJECT && consume(TASSIGN);
 	for (names = db.next; names != &db; names = names->next) {
 		decl = listelement(names, struct declbuilder, list);
 		name = decl->name;
+		asmname = decl->asmname;
 		if (decl->width != -1)
 			error(&tok.loc, "invalid bit-field declaration");
 		if (!t && kind != DECLOBJECT)
@@ -893,7 +905,6 @@ decl(struct scope *s, struct func *f, bool instmt)
 		case DECLFUNC:
 			if (align)
 				error(&tok.loc, "function '%s' declared with alignment specifier", name);
-			t->func.isnoreturn |= fs & FUNCNORETURN;
 			if (f && sc && sc != SCPUBLIC)  /* 6.7.1p7 */
 				error(&tok.loc, "function '%s' with block scope may only have storage class 'pub'", name);
 			d = declcommon(s, kind, name, asmname, t, tq, sc, prior);

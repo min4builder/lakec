@@ -137,7 +137,6 @@ designator(struct scope *s, struct initparser *p)
 			name = expect(TIDENT, "for member designator");
 			if (!findmember(p, name))
 				error(&tok.loc, "%s has no member named '%s'", t->kind == TYPEUNION ? "union" : "struct", name);
-			free(name);
 			break;
 		default:
 			expect(TASSIGN, "after designator");

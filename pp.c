@@ -162,7 +162,6 @@ static struct token *
 ctxnext(void)
 {
 	struct frame *f;
-	struct token *t;
 	struct macro *m;
 	bool space;
 	size_t i;
@@ -181,14 +180,6 @@ again:
 		/* try to expand macro parameter */
 		space = f->token->space;
 		switch (f->token->kind) {
-		case THASH:
-			framenext(f);
-			t = framenext(f);
-			assert(t);
-			i = macroparam(m, t);
-			assert(i != -1);
-			f = ctxpush(&m->arg[i].str, 1, NULL, space);
-			break;
 		case TIDENT:
 			i = macroparam(m, f->token);
 			if (i == -1)
@@ -237,7 +228,7 @@ static void
 define(void)
 {
 	struct token *t;
-	enum tokenkind prev, end;
+	enum tokenkind end;
 	struct macro *m;
 	struct macroparam *p;
 	struct array params = {0}, repl = {0};
@@ -298,7 +289,6 @@ define(void)
 			bn++;
 		else if (t->kind == TRBRACE)
 			bn--;
-		prev = t->kind;
 		t = arrayadd(&repl, sizeof(*t));
 		scan(t);
 		if (m->kind != MACROFUNC && m->kind != MACROTYPEFUNC)
@@ -306,13 +296,6 @@ define(void)
 		if (i != -1)
 			m->param[i].flags |= PARAMTOK;
 		i = macroparam(m, t);
-		if (prev == THASH) {
-			tokencheck(t, TIDENT, "after '#' operator");
-			if (i == -1)
-				error(&t->loc, "'%s' is not a macro parameter name", t->lit);
-			m->param[i].flags |= PARAMSTR;
-			i = -1;
-		}
 	}
 	tokencheck(t, end, "to end macro body");
 	m->token = repl.val;
@@ -574,9 +557,7 @@ keyword(struct token *tok)
 	} keywords[] = {
 		{"_Generic",       T_GENERIC},
 		{"__attribute__",  T__ATTRIBUTE__},
-		{"alignas",        TALIGNAS},
 		{"alignof",        TALIGNOF},
-		{"asm",            TASM},
 		{"auto",           TAUTO},
 		{"break",          TBREAK},
 		{"case",           TCASE},
@@ -589,10 +570,8 @@ keyword(struct token *tok)
 		{"if",             TIF},
 		{"inline",         TINLINE},
 		{"mut",            TMUT},
-		{"noreturn",       TNORETURN},
 		{"pub",            TPUB},
 		{"register",       TREGISTER},
-		{"restrict",       TRESTRICT},
 		{"return",         TRETURN},
 		{"sizeof",         TSIZEOF},
 		{"static",         TSTATIC},
@@ -603,7 +582,6 @@ keyword(struct token *tok)
 		{"typeof",         TTYPEOF},
 		{"union",          TUNION},
 		{"void",           TVOID},
-		{"volatile",       TVOLATILE},
 		{"while",          TWHILE},
 	};
 	size_t low = 0, high = LEN(keywords), mid;

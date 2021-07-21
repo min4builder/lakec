@@ -17,6 +17,8 @@
 
 struct type typevoid = {.kind = TYPEVOID, .prop = PROPOBJECT, .incomplete = true};
 
+struct type typenoreturn = {.kind = TYPENORETURN, .repr = &i8, .prop = PROPNONE, .incomplete = true};
+
 struct type typebool = INTTYPE(TYPEBOOL, 1, &i8, false, 0);
 
 struct type typechar = INTTYPE(TYPECHAR, 1, &i8, true, PROPCHAR);
@@ -124,6 +126,8 @@ typecompatible(struct type *t1, struct type *t2)
 
 	if (t1 == t2)
 		return true;
+	if (t1 == &typenoreturn || t2 == &typenoreturn)
+		return true;
 	if (t1->kind != t2->kind) {
 		/* enum types are compatible with 'int', but not with
 		   each other (unless they are the same type) */
@@ -181,6 +185,8 @@ typecompatible(struct type *t1, struct type *t2)
 bool
 typeconvertible(struct type *t1, struct type *t2)
 {
+	if (t1 == &typenoreturn || t2 == &typenoreturn)
+		return true;
 	if (t1->prop & PROPSCALAR && t2->kind == TYPEBOOL)
 		return true;
 	if (t1->prop & (PROPINT | PROPFLOAT) && t2->prop & PROPFLOAT)
@@ -222,7 +228,6 @@ typesame(struct type *t1, struct type *t2)
 			&& typesame(t1->base, t2->base);
 	case TYPEFUNC:
 		if (t1->func.isvararg != t2->func.isvararg ||
-		    t1->func.isnoreturn != t2->func.isnoreturn ||
 		    t1->func.paraminfo != t2->func.paraminfo)
 			return false;
 		if (!t1->func.paraminfo)
@@ -243,6 +248,8 @@ typecomposite(struct type *t1, struct type *t2)
 {
 	// XXX: implement 6.2.7
 	// XXX: merge with typecompatible?
+	if (t1 == &typenoreturn)
+		return t2;
 	return t1;
 }
 
@@ -264,6 +271,14 @@ typecommonreal(struct type *t1, unsigned w1, struct type *t2, unsigned w2)
 {
 	struct type *tmp;
 
+	if (t1 == &typenoreturn) {
+		assert(t2->prop & PROPREAL);
+		return t2;
+	}
+	if (t2 == &typenoreturn) {
+		assert(t1->prop & PROPREAL);
+		return t1;
+	}
 	assert(t1->prop & PROPREAL && t2->prop & PROPREAL);
 	if (t1 == &typef64 || t2 == &typef64)
 		return &typef64;

@@ -12,9 +12,7 @@ struct token tok;
 
 const char *tokstr[] = {
 	/* keyword */
-	[TALIGNAS] = "alignas",
 	[TALIGNOF] = "alignof",
-	[TASM] = "asm",
 	[TAUTO] = "auto",
 	[TBREAK] = "break",
 	[TCASE] = "case",
@@ -27,10 +25,8 @@ const char *tokstr[] = {
 	[TIF] = "if",
 	[TINLINE] = "inline",
 	[TMUT] = "mut",
-	[TNORETURN] = "noreturn",
 	[TPUB] = "pub",
 	[TREGISTER] = "register",
-	[TRESTRICT] = "restrict",
 	[TRETURN] = "return",
 	[TSIZEOF] = "sizeof",
 	[TSTATIC] = "static",
@@ -41,7 +37,6 @@ const char *tokstr[] = {
 	[TTYPEOF] = "typeof",
 	[TUNION] = "union",
 	[TVOID] = "void",
-	[TVOLATILE] = "volatile",
 	[TWHILE] = "while",
 	[T_GENERIC] = "_Generic",
 	[T__ATTRIBUTE__] = "__attribute__",

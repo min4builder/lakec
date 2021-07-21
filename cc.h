@@ -15,9 +15,7 @@ enum tokenkind {
 	TSTRINGLIT,
 
 	/* keyword */
-	TALIGNAS,
 	TALIGNOF,
-	TASM,
 	TAUTO,
 	TBREAK,
 	TCASE,
@@ -30,10 +28,8 @@ enum tokenkind {
 	TIF,
 	TINLINE,
 	TMUT,
-	TNORETURN,
 	TPUB,
 	TREGISTER,
-	TRESTRICT,
 	TRETURN,
 	TSIZEOF,
 	TSTATIC,
@@ -44,7 +40,6 @@ enum tokenkind {
 	TTYPEOF,
 	TUNION,
 	TVOID,
-	TVOLATILE,
 	TWHILE,
 	T_GENERIC,
 	T__ATTRIBUTE__,
@@ -130,6 +125,7 @@ enum typekind {
 	TYPENONE,
 
 	TYPEVOID,
+	TYPENORETURN,
 	TYPEBOOL,
 	TYPECHAR,
 	TYPESHORT,
@@ -204,7 +200,7 @@ struct type {
 			uint64_t length;
 		} array;
 		struct {
-			_Bool isvararg, isnoreturn, paraminfo;
+			_Bool isvararg, paraminfo;
 			struct param *params;
 		} func;
 		struct {
@@ -414,6 +410,7 @@ struct member *typemember(struct type *, const char *, uint64_t *);
 struct param *mkparam(char *, struct type *, enum typequal);
 
 extern struct type typevoid;
+extern struct type typenoreturn;
 extern struct type typebool;
 extern struct type typechar;
 extern struct type typei8, typeu8;

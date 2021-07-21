@@ -923,7 +923,9 @@ funcexpr(struct func *f, struct expr *e)
 		funclabel(f, label[2]);
 		if (e->type == &typevoid)
 			return NULL;
-		if (e->cond.f->type == &typevoid)
+		if (e->cond.t->type == &typenoreturn)
+			return r;
+		if (e->cond.f->type == &typenoreturn)
 			return l;
 		return funcinst(f, IPHI, e->type->repr, label[3], l, label[4], r, NULL);
 	case EXPRASSIGN:
@@ -1023,7 +1025,7 @@ funcinit(struct func *func, struct decl *d, struct init *init, char *name)
 		if (init->expr->kind == EXPRSTRING) {
 			for (i = 0; i < init->expr->string.size && i < init->end - init->start; ++i) {
 				dst.addr = funcinst(func, IADD, &iptr, d->value, mkintconst(&iptr, init->start + i));
-				funcstore(func, &typechar, QUALMUT, dst, mkintconst(&i8, init->expr->string.data[i]));
+				funcstore(func, &typechar, init->expr->qual | QUALMUT, dst, mkintconst(&i8, init->expr->string.data[i]));
 			}
 			offset = init->start + i;
 		} else {
@@ -1031,7 +1033,7 @@ funcinit(struct func *func, struct decl *d, struct init *init, char *name)
 				zero(func, d->value, d->type->align, offset, init->end);
 			dst.addr = funcinst(func, IADD, &iptr, d->value, mkintconst(&iptr, init->start));
 			src = funcexpr(func, init->expr);
-			funcstore(func, init->expr->type, QUALMUT, dst, src);
+			funcstore(func, init->expr->type, init->expr->qual | QUALMUT, dst, src);
 			offset = init->end;
 		}
 		if (max < offset)

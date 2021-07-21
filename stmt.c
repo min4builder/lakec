@@ -248,8 +248,5 @@ stmt(struct func *f, struct scope *s)
 		funclabel(f, label[3]);
 		s = delscope(s);
 		break;
-
-	case TASM:
-		error(&tok.loc, "inline assembly is not yet supported");
 	}
 }

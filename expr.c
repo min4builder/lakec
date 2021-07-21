@@ -202,8 +202,10 @@ condunify(struct expr *e)
 		e->type = commonreal(&e->cond.t, &e->cond.f);
 	} else if (t == &typevoid && f == &typevoid) {
 		e->type = &typevoid;
-	} else if (e->cond.f->kind == EXPRJUMP || e->cond.f->kind == EXPRRET) {
+	} else if (e->cond.f->type == &typenoreturn) {
 		e->type = t;
+	} else if (e->cond.t->type == &typenoreturn) {
+		e->type = f;
 	} else {
 		e->cond.t = eval(e->cond.t, EVALARITH);
 		e->cond.f = eval(e->cond.f, EVALARITH);
@@ -632,7 +634,6 @@ designator(struct scope *s, struct type *t, uint64_t *offset)
 			m = typemember(t, name, offset);
 			if (!m)
 				error(&tok.loc, "%s has no member named '%s'", t->kind == TYPEUNION ? "union" : "struct", name);
-			free(name);
 			t = m->type;
 			break;
 		default:
@@ -691,7 +692,6 @@ builtinfunc(struct scope *s, enum builtinkind kind)
 			error(&tok.loc, "struct/union has no member named '%s'", name);
 		designator(s, m->type, &offset);
 		e = mkconstexpr(targ->typeulong, offset);
-		free(name);
 		break;
 	case BUILTINTYPESCOMPATIBLEP:
 		t = typename(s, NULL);
@@ -1000,25 +1000,25 @@ unaryexpr(struct scope *s)
 		e = castexpr(s);
 		if (!(e->type->prop & PROPSCALAR))
 			error(&tok.loc, "operator '!' must have scalar operand");
-		e = mkbinaryexpr(s, &tok.loc, TEQL, e, mkconstexpr(targ->typeint, 0));
+		e = mkbinaryexpr(s, &tok.loc, TEQL, e, mkconstexpr(e->type, 0));
 		break;
 	case TGOTO:
 		next();
 		name = expect(TIDENT, "after 'goto'");
-		e = mkexpr(EXPRJUMP, &typevoid);
+		e = mkexpr(EXPRJUMP, &typenoreturn);
 		e->label = funcgoto(s->func, name)->label;
 		break;
 	case TCONTINUE:
 		if (!s->continuelabel)
 			error(&tok.loc, "'continue' must be in loop or switch");
 		next();
-		e = mkexpr(EXPRJUMP, &typevoid);
+		e = mkexpr(EXPRJUMP, &typenoreturn);
 		e->label = s->continuelabel;
 		if (s->switchcond) {
 			l = condexpr(s);
 			l = mkassignexpr(s->switchcond, l);
 			l->next = e;
-			e = mkexpr(EXPRCOMMA, &typevoid);
+			e = mkexpr(EXPRCOMMA, &typenoreturn);
 			e->base = l;
 			e->qual = QUALNONE;
 		}
@@ -1027,7 +1027,7 @@ unaryexpr(struct scope *s)
 		if (!s->breaklabel)
 			error(&tok.loc, "'break' must be in loop or switch");
 		next();
-		e = mkexpr(EXPRJUMP, &typevoid);
+		e = mkexpr(EXPRJUMP, &typenoreturn);
 		e->label = s->breaklabel;
 		break;
 	case TRETURN:
@@ -1036,7 +1036,7 @@ unaryexpr(struct scope *s)
 		l = NULL;
 		if (t->base != &typevoid)
 			l = exprconvert(expr(s), t->qual, t->base);
-		e = mkexpr(EXPRRET, &typevoid);
+		e = mkexpr(EXPRRET, &typenoreturn);
 		e->base = l;
 		break;
 	case TSIZEOF:
@@ -1316,6 +1316,8 @@ exprconvert(struct expr *e, enum typequal qt, struct type *t)
 	struct expr *cast;
 
 	if ((e->qual & QUALNOCOPY) == (qt & QUALNOCOPY) && typecompatible(e->type, t))
+		return e;
+	if (nullpointer(e) && t->kind == TYPEPOINTER)
 		return e;
 	if (!typeconvertible(e->type, t))
 		error(&tok.loc, "illegal implicit conversion");

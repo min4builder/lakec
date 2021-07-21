@@ -62,8 +62,8 @@ their prefix versions.
 
 Other things:
 
-    noreturn f() void; /* f cannot return */
-    g() void asm("__internal_g"); /* g's name in assembly (and other languages) */
+    f() noreturn; /* f cannot return */
+    #[name "__internal_g"] g() void; /* g's name in assembly (and other languages) */
     static_assert(1, "1 is not true"); /* compile-time assert */
 
 ## Types
@@ -123,7 +123,8 @@ and is in general more useful, but it does make `mut` mandatory.
     mut *mut []int /* mutable pointer to mutable array of ints */
     mut []int == []mut int /* use the first, please */
 
-`volatile` also works as in C.
+`volatile` and `restrict` also work as in C,
+but are called `#volatile` and `#restrict` respectively.
 
 `#nocopy` can be used to say a value must be used AT MOST once.
 This gives it "move semantics" more or less as in Rust:

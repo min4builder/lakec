@@ -41,6 +41,7 @@ scopeinit(void)
 	scopeputdecl(&filescope, "true", d);
 
 	scopeputtag(&filescope, "__builtin_va_list", &typevalist);
+	scopeputtag(&filescope, "noreturn", &typenoreturn);
 	scopeputtag(&filescope, "bool", &typebool);
 	scopeputtag(&filescope, "char", &typechar);
 	scopeputtag(&filescope, "f32", &typef32);
