@@ -127,7 +127,7 @@ mangletype(struct type **tstack, int *top, struct type *t, char *w, char *max)
 			*n++ = t->kind == TYPESTRUCT ? 'S' : 'U';
 			for (m = t->structunion.members; m; m = m->next)
 				n = mangletype(tstack, top, m->type, n, name + sizeof(name));
-			w += snprintf(w, max-w, "%ld%*s", n-name, (int) (n-name), name);
+			w += snprintf(w, max-w, "%ld%.*s", n-name, (int) (n-name), name);
 			if (w > max) w = max;
 			*top = nt;
 		}

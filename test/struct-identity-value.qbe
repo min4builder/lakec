@@ -52,3 +52,4 @@ function $f() {
 	%.37 =l add %.34, 4
 	ret
 }
+data $_ = align 4 { z 12 }

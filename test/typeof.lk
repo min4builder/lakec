@@ -1,9 +1,9 @@
 f(_*char) int;
-f, g typeof(f);
+f, g type(f);
 
-x typeof(g(0->[*char]));
+x type(g(0->[*char]));
 x int;
 
 t *int;
-y mut typeof(t);
+y mut type(t);
 y mut *int;

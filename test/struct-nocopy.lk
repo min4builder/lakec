@@ -1,4 +1,4 @@
-struct a (
+type a struct (
 	a, b #nocopy int
 );
 

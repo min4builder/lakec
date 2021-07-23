@@ -1,7 +1,7 @@
-struct s (
+type s struct (
 	x, y char,
 	z : 48,
 );
 
-f(s struct s) void {
+f(s s) void {
 }

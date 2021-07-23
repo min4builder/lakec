@@ -1,12 +1,12 @@
-struct s (
+type s struct (
 	_ : 8,
 	c char,
 );
-union u (
+type u union (
 	_ : 8,
 	c char,
 );
-s1 = sizeof[struct s];
-s2 = alignof[struct s];
-u1 = sizeof[union u];
-u2 = alignof[union u];
+s1 = sizeof[s];
+s2 = alignof[s];
+u1 = sizeof[u];
+u2 = alignof[u];

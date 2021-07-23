@@ -1,4 +1,4 @@
-typedef ? int;
+type ? int;
 x? ? = 0;
 f?(y ?) bool {
 	return y == 0;

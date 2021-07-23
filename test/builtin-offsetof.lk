@@ -1,4 +1,4 @@
-struct s (
+type s struct (
 	a [5]struct (
 		b union (
 			z f32,
@@ -6,4 +6,4 @@ struct s (
 		),
 	),
 );
-x = offsetof(struct s, a[2].b.c);
+x = offsetof(s, a[2].b.c);

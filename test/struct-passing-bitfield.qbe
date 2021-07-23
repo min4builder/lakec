@@ -1,5 +1,5 @@
-type :s.1 = { l, }
-function $f(:s.1 %.1) {
+type :.1 = { l, }
+function $f(:.1 %.1) {
 @start.1
 @body.2
 	ret

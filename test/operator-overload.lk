@@ -1,16 +1,16 @@
-struct a(x, y int);
+type a struct(x, y int);
 
-.+(x, y struct a) struct a {
-	return [struct a](x.x + y.x, x.y + y.y);
+.+(x, y a) a {
+	return [a](x.x + y.x, x.y + y.y);
 }
 
-.++(x *mut struct a) void {
-	*x += [struct a](1, 1);
+.++(x *mut a) void {
+	*x += [a](1, 1);
 }
 
 f() void {
-	auto x struct a = (6, 6);
-	auto y struct a = (7, 7);
+	auto x a = (6, 6);
+	auto y a = (7, 7);
 	auto z mut = x + y;
 	auto w = z++;
 }

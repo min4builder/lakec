@@ -19,7 +19,7 @@ struct qualtype {
 enum storageclass {
 	SCNONE,
 
-	SCTYPEDEF     = 1<<1,
+	SCTYPE        = 1<<1,
 	SCPUBLIC      = 1<<2,
 	SCSTATIC      = 1<<3,
 	SCAUTO        = 1<<4,
@@ -66,7 +66,7 @@ storageclass(enum storageclass *sc)
 	enum storageclass new;
 
 	switch (tok.kind) {
-	case TTYPEDEF:  new = SCTYPEDEF;     break;
+	case TTYPE:     new = SCTYPE;        break;
 	case TPUB:      new = SCPUBLIC;      break;
 	case TSTATIC:   new = SCSTATIC;      break;
 	case TAUTO:     new = SCAUTO;        break;
@@ -304,7 +304,7 @@ decltype(struct scope *s, int *align)
 			}
 			next();
 			goto done;
-		case TTYPEOF:
+		case TTYPE:
 			next();
 			expect(TLPAREN, "after 'typeof'");
 			e = expr(s);
@@ -357,8 +357,6 @@ decltype(struct scope *s, int *align)
 					if (!consume(TCOMMA))
 						break;
 				}
-				if ((*t)->func.params->type->kind == TYPEVOID && !(*t)->func.params->next)
-					(*t)->func.params = NULL;
 			}
 			expect(TRPAREN, "to close function declarator");
 			(*t)->func.paraminfo = true;
@@ -429,24 +427,16 @@ mkdeclbuilder(char *name, char *asmname, uint64_t width)
 static struct qualtype
 declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct list *db, int *align, bool needsc)
 {
-	struct qualtype qt;
-	struct type *t;
-	struct param **p;
+	struct qualtype qt = { NULL, QUALNONE };
 	struct declbuilder *cur;
 	enum tokenkind overload = TNONE;
-	enum typequal tq;
 	char *name, *asmname = 0;
 	int64_t width;
 
-	t = NULL;
 	if (sc)
 		*sc = SCNONE;
 	if (fs)
 		*fs = FUNCNONE;
-	while (funcspec(fs) || storageclass(sc))
-		{}
-	if (sc && !*sc && needsc)
-		return (struct qualtype){NULL, QUALNONE};
 
 	if (tok.kind == THASH) {
 		next();
@@ -461,7 +451,14 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 			error(&tok.loc, "unknown pragma");
 	}
 
+	storageclass(sc);
+	funcspec(fs);
+	if (sc && !*sc && (!fs || !*fs) && !asmname && needsc)
+		return (struct qualtype){NULL, QUALNONE};
+
 	switch (tok.kind) {
+	case TENUM:
+		break;
 	case TIDENT:
 		do {
 			if (tok.kind != TIDENT)
@@ -470,20 +467,18 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 			next();
 			width = -1;
 			if (consume(TCOLON)) {
-				typequal(&tq, s, align);
+				typequal(&qt.qual, s, align);
 				width = intconstexpr(s, true);
 				if (width < 0) {
 					width = -width;
-					t = targ->typeint;
+					qt.type = targ->typeint;
 				} else {
-					t = targ->typeuint;
+					qt.type = targ->typeuint;
 				}
-				if (t == targ->typeint && width >= targ->typeint->size * 8)
-					t = targ->typelong;
-				else if (t == targ->typeuint && width > targ->typeuint->size * 8)
-					t = targ->typeulong;
-				qt.type = t;
-				qt.qual = tq;
+				if (qt.type == targ->typeint && width >= targ->typeint->size * 8)
+					qt.type = targ->typelong;
+				else if (qt.type == targ->typeuint && width > targ->typeuint->size * 8)
+					qt.type = targ->typeulong;
 			}
 			cur = mkdeclbuilder(name, asmname, width);
 			listinsert(db->prev, &cur->list);
@@ -525,49 +520,17 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 		}
 		next();
 		break;
-	case TSTRUCT:
-	case TUNION:
-	case TENUM:
-		break;
 	default:
 		return (struct qualtype){NULL, QUALNONE};
 	}
-	if (fs && tok.kind == TLPAREN) {
-		next();
-		t = mktype(TYPEFUNC, PROPDERIVED);
-		t->qual = QUALNONE;
-		t->func.isvararg = false;
-		t->func.params = NULL;
-		p = &t->func.params;
-		if (tok.kind != TRPAREN) {
-			for (;;) {
-				if (consume(TELLIPSIS)) {
-					t->func.isvararg = true;
-					break;
-				}
-				p = parameters(s, p);
-				if (!consume(TCOMMA))
-					break;
-			}
-		}
-		expect(TRPAREN, "to close function declarator");
-		t->func.paraminfo = t->func.params || tok.kind == TLBRACE;
-		if (overload) {
-			cur = mkdeclbuilder(manglegen(overload, t), 0, -1);
-			listinsert(db->prev, &cur->list);
-		}
-	} else if (overload)
-		error(&tok.loc, "overload must be function");
+
 	qt = decltype(s, align);
-	if (t) {
-		if (!qt.type)
-			error(&tok.loc, "function has no return type");
-		if (qt.type->kind == TYPEFUNC)
-			error(&tok.loc, "function returns function");
-		if (qt.type->kind == TYPEARRAY)
-			error(&tok.loc, "function returns array");
-		t->base = qt.type;
-		qt.type = t;
+
+	if (overload) {
+		if (qt.type->kind != TYPEFUNC)
+			error(&tok.loc, "overload must be function");
+		cur = mkdeclbuilder(manglegen(overload, qt.type), 0, -1);
+		listinsert(db->prev, &cur->list);
 	}
 	return qt;
 }
@@ -850,18 +813,18 @@ decl(struct scope *s, struct func *f, bool instmt)
 			error(&tok.loc, "invalid bit-field declaration");
 		if (!t && kind != DECLOBJECT)
 			error(&tok.loc, "declaration '%s' with no type", name);
-		if (sc & SCTYPEDEF) {
+		if (sc & SCTYPE) {
 			if (align)
-				error(&tok.loc, "typedef '%s' declared with alignment specifier", name);
+				error(&tok.loc, "type '%s' declared with alignment specifier", name);
 			if (asmname)
-				error(&tok.loc, "typedef '%s' declared with assembler label", name);
+				error(&tok.loc, "type '%s' declared with assembler label", name);
 			pt = scopegettag(s, name, false);
 			if (!pt)
 				scopeputtag(s, name, t);
 			else if (pt->incomplete)
 				*pt = *t;
 			else if (!typesame(pt, t))
-				error(&tok.loc, "typedef '%s' redefined with different type", name);
+				error(&tok.loc, "type '%s' redefined with different type", name);
 			continue;
 		}
 		prior = scopegetdecl(s, name, false);

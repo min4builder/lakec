@@ -44,7 +44,7 @@ C, with:
 - module system (static by default, basic import DONE, missing namespacing (?))
 
       /* on header.ph */
-      typedef t thing;
+      type t thing;
       other() int;
 
       import "header.ph";
@@ -61,8 +61,8 @@ C, with:
 - new decl syntax (postfix and cast DONE, missing init, compound literals, etc.)
 
       a *[32]int = &[[32]int](0);
-      struct a (x : 3, _ : 0, y : -4, a, b int);
-      e struct a = (2, 4);
+      type a struct(x : 3, _ : 0, y : -4, a, b int);
+      e a = (2, 4);
       b = a->[*int];
       c = sizeof(b);
       d = sizeof[int];
@@ -84,12 +84,12 @@ C, with:
 
       auto x = alloc[int];
       auto y = x;
-      free(y); /* if you remove this line, #nodrop will error */
-      /* free(x); */ /* if you uncomment this line, #nocopy will error */
+      free(y); /* if you comment this line, #nodrop will error */
+      // free(x); /* if you uncomment this line, #nocopy will error */
 
 - type-safe & lw generics (WIP, no real syntax)
 
-      define Vec[T] = struct(len, cap, size ulong, vec *T);
+      define Vec[T] = struct(len, cap, size ulong, vec *mut []T);
       a Vec int = (0, 0, sizeof[int], 0);
       define vecnew[T] {
           (vecnew_(sizeof[T])->[Vec T])

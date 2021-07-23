@@ -1,22 +1,22 @@
-typedef a struct (
+type a struct (
 	a, b, c int,
 	etc mut []char,
 );
 
-typedef b struct (
+type b struct (
 	d, e, f int,
 	etc mut []char,
 );
 
-struct c (
+_ struct c (
 	g, h, i int,
 	blah mut []char,
 );
 
 f() void {
-	auto d *struct c = &[struct c](0);
+	auto d *c = &[c](0);
 	auto e *a = d;
 	auto f *b = e;
-	auto g *struct c = f;
+	auto g *c = f;
 }
 
