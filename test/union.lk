@@ -1,4 +1,4 @@
-a, b union u (
+a, b union (
 	x int,
 	y f64,
 ) = (.x = 5), (.y = 7.5);

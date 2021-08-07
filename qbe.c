@@ -284,7 +284,7 @@ funcalloctemp(struct func *f, enum typequal tq, struct type *t, int align, char 
 static void
 funcalloc(struct func *f, struct decl *d, char *name)
 {
-	d->value = funcalloctemp(f, d->qual, d->type, d->align, name);
+	d->value = funcalloctemp(f, d->qual, typeeval(d->type), d->align, name);
 }
 
 static struct value *
@@ -503,9 +503,9 @@ convert(struct func *f, enum typequal dtq, struct type *dst, enum typequal stq, 
 	if (dst->kind == TYPESTRUCT || dst->kind == TYPEUNION)
 		dtq |= dst->qual;
 
-	if (src->kind == TYPEPOINTER)
+	if (src->kind == TYPEPOINTER || src->kind == TYPEARRAY)
 		src = targ->typeulong;
-	if (dst->kind == TYPEPOINTER)
+	if (dst->kind == TYPEPOINTER || dst->kind == TYPEARRAY)
 		dst = targ->typeulong;
 	if (dst->kind == TYPEVOID)
 		return NULL;
@@ -563,7 +563,6 @@ mkfunc(struct decl *decl, char *name, struct type *t, struct scope *s)
 	struct param *p;
 	struct decl *d;
 	struct type *pt;
-	struct value *v;
 
 	f = xmalloc(sizeof(*f));
 	f->decl = decl;
@@ -572,31 +571,30 @@ mkfunc(struct decl *decl, char *name, struct type *t, struct scope *s)
 	f->start = f->end = (struct block *)mkblock("start");
 	f->gotos = mkmap(8);
 	f->lastid = 0;
-	emittype(t->base);
+	emittype(typeeval(t->base));
 
 	/* allocate space for parameters */
 	for (p = t->func.params; p; p = p->next) {
-		if (!p->name)
-			error(&tok.loc, "parameter name omitted in definition of function '%s'", name);
-		pt = p->type;
-		emittype(p->type);
+		pt = typeeval(p->type);
+		if (pt->kind == TYPEARRAY || pt->kind == TYPEFUNC)
+			pt = mkpointertype(&pt->gen, p->qual);
+		emittype(pt);
 		p->value = xmalloc(sizeof(*p->value));
 		functemp(f, p->value, pt->repr, p->name);
 		d = mkdecl(DECLOBJECT, p->type, p->qual, LINKNONE);
-		if (p->type->repr->abi.id) {
+		if (pt->repr->abi.id) {
 			d->value = xmalloc(sizeof(*d->value));
 			*d->value = *p->value;
 			d->value->repr = &iptr;
 		} else {
-			v = typecompatible(p->type, pt) ? p->value : convert(f, p->qual, pt, p->qual, p->type, p->value);
 			funcinit(f, d, NULL, p->name);
-			funcstore(f, p->type, QUALMUT, (struct lvalue){d->value}, v);
+			funcstore(f, pt, QUALMUT, (struct lvalue){d->value}, p->value);
 		}
 		scopeputdecl(s, p->name, d);
 	}
 
-	t = mkarraytype(&typechar, QUALNONE, strlen(name) + 1);
-	d = mkdecl(DECLOBJECT, t, QUALNONE, LINKNONE);
+	t = mkarraytype(&typechar.gen, QUALNONE, strlen(name) + 1);
+	d = mkdecl(DECLOBJECT, &t->gen, QUALNONE, LINKNONE);
 	d->value = mkglobal("__func__", true);
 	scopeputdecl(s, "__func__", d);
 	f->namedecl = d;
@@ -715,7 +713,7 @@ funclval(struct func *f, struct expr *e)
 		lval.addr = funcexpr(f, e->base);
 		break;
 	default:
-		if (e->type->kind != TYPESTRUCT && e->type->kind != TYPEUNION)
+		if (typeeval(e->type)->kind != TYPESTRUCT && typeeval(e->type)->kind != TYPEUNION)
 			error(&tok.loc, "expression is not an object");
 		lval.addr = funcinst(f, ICOPY, &iptr, funcexpr(f, e));
 	}
@@ -737,40 +735,47 @@ funcexpr(struct func *f, struct expr *e)
 	case EXPRIDENT:
 		d = e->ident.decl;
 		switch (d->kind) {
-		case DECLOBJECT: return funcload(f, d->type, (struct lvalue){d->value});
+		case DECLOBJECT: return funcload(f, typeeval(d->type), (struct lvalue){d->value});
+		case DECLFUNC:
 		case DECLCONST:  return d->value;
 		default:
 			fatal("unimplemented declaration kind %d", d->kind);
 		}
 		break;
 	case EXPRCONST:
-		if (e->type->prop & PROPINT || e->type->kind == TYPEPOINTER)
-			return mkintconst(e->type->repr, e->constant.i);
-		return mkfltconst(e->type->repr, e->constant.f);
+		if (typeeval(e->type)->prop & PROPINT || typeeval(e->type)->kind == TYPEPOINTER)
+			return mkintconst(typeeval(e->type)->repr, e->constant.i);
+		return mkfltconst(typeeval(e->type)->repr, e->constant.f);
+	case EXPRSTRING:
+		d = stringdecl(e);
+		return d->value;
 	case EXPRBITFIELD:
 	case EXPRCOMPOUND:
 		lval = funclval(f, e);
-		return funcload(f, e->type, lval);
+		return funcload(f, typeeval(e->type), lval);
 	case EXPRINCDEC:
 		lval = funclval(f, e->base);
-		l = funcload(f, e->base->type, lval);
-		if (e->type->kind == TYPEPOINTER)
-			r = mkintconst(e->type->repr, e->type->base->size);
-		else if (e->type->prop & PROPINT)
-			r = mkintconst(e->type->repr, 1);
-		else if (e->type->prop & PROPFLOAT)
-			r = mkfltconst(e->type->repr, 1);
+		l = funcload(f, typeeval(e->base->type), lval);
+		if (typeeval(e->type)->kind == TYPEPOINTER)
+			r = mkintconst(typeeval(e->type)->repr, typeeval(typeeval(e->type)->base)->size);
+		else if (typeeval(e->type)->prop & PROPINT)
+			r = mkintconst(typeeval(e->type)->repr, 1);
+		else if (typeeval(e->type)->prop & PROPFLOAT)
+			r = mkfltconst(typeeval(e->type)->repr, 1);
 		else
 			fatal("not a scalar");
-		v = funcinst(f, e->op == TINC ? IADD : ISUB, e->type->repr, l, r);
-		v = funcstore(f, e->type, e->qual, lval, v);
+		v = funcinst(f, e->op == TINC ? IADD : ISUB, typeeval(e->type)->repr, l, r);
+		v = funcstore(f, typeeval(e->type), e->qual, lval, v);
 		return e->incdec.post ? l : v;
 	case EXPRCALL:
 		argvals = xreallocarray(NULL, e->call.nargs + 3, sizeof(argvals[0]));
 		argvals[0] = funcexpr(f, e->base);
-		emittype(e->type);
+		emittype(typeeval(e->type));
 		for (argval = &argvals[1], arg = e->call.args; arg; ++argval, arg = arg->next) {
-			emittype(arg->type);
+			t = typeeval(arg->type);
+			if (t->kind == TYPEARRAY || t->kind == TYPEFUNC)
+				t = mkpointertype(&t->gen, arg->qual);
+			emittype(t);
 			v = funcexpr(f, arg);
 			if (v->lval && v->lval->qual & (QUALNOCOPY | QUALNODROP)) {
 				v->lval->uses++;
@@ -780,8 +785,8 @@ funcexpr(struct func *f, struct expr *e)
 			*argval = v;
 		}
 		*argval = NULL;
-		op = e->base->type->base->func.isvararg ? IVACALL : ICALL;
-		v = funcinstn(f, op, e->type == &typevoid ? NULL : e->type->repr, argvals);
+		op = typeeval(typeeval(e->base->type)->base)->func.isvararg ? IVACALL : ICALL;
+		v = funcinstn(f, op, e->type == &typevoid.gen ? NULL : typeeval(e->type)->repr, argvals);
 		free(argvals);
 		return v;
 	case EXPRUNARY:
@@ -791,13 +796,13 @@ funcexpr(struct func *f, struct expr *e)
 			return lval.addr;
 		case TMUL:
 			r = funcexpr(f, e->base);
-			return funcload(f, e->type, (struct lvalue){r});
+			return funcload(f, typeeval(e->type), (struct lvalue){r});
 		}
 		fatal("internal error; unknown unary expression");
 		break;
 	case EXPRCAST:
 		l = funcexpr(f, e->base);
-		return convert(f, e->qual, e->type, e->base->qual, e->base->type, l);
+		return convert(f, e->qual, typeeval(e->type), e->base->qual, typeeval(e->base->type), l);
 	case EXPRBINARY:
 		if (e->op == TLOR || e->op == TLAND) {
 			label[0] = mkblock("logic_right");
@@ -813,11 +818,11 @@ funcexpr(struct func *f, struct expr *e)
 			r = funcexpr(f, e->binary.r);
 			label[3] = (struct value *)f->end;
 			funclabel(f, label[1]);
-			return funcinst(f, IPHI, e->type->repr, label[2], l, label[3], r, NULL);
+			return funcinst(f, IPHI, typeeval(e->type)->repr, label[2], l, label[3], r, NULL);
 		}
 		l = funcexpr(f, e->binary.l);
 		r = funcexpr(f, e->binary.r);
-		t = e->binary.l->type;
+		t = typeeval(e->binary.l->type);
 		if (t->kind == TYPEPOINTER)
 			t = targ->typeulong;
 		switch (e->op) {
@@ -825,10 +830,10 @@ funcexpr(struct func *f, struct expr *e)
 			op = IMUL;
 			break;
 		case TDIV:
-			op = !(e->type->prop & PROPINT) || e->type->basic.issigned ? IDIV : IUDIV;
+			op = !(typeeval(e->type)->prop & PROPINT) || typeeval(e->type)->basic.issigned ? IDIV : IUDIV;
 			break;
 		case TMOD:
-			op = e->type->basic.issigned ? IREM : IUREM;
+			op = typeeval(e->type)->basic.issigned ? IREM : IUREM;
 			break;
 		case TADD:
 			op = IADD;
@@ -902,7 +907,7 @@ funcexpr(struct func *f, struct expr *e)
 		}
 		if (op == INONE)
 			fatal("internal error; unimplemented binary expression");
-		return funcinst(f, op, e->type->repr, l, r);
+		return funcinst(f, op, typeeval(e->type)->repr, l, r);
 	case EXPRCOND:
 		label[0] = mkblock("cond_true");
 		label[1] = mkblock("cond_false");
@@ -921,24 +926,24 @@ funcexpr(struct func *f, struct expr *e)
 		label[4] = (struct value *)f->end;
 
 		funclabel(f, label[2]);
-		if (e->type == &typevoid)
+		if (typeeval(e->type) == &typevoid)
 			return NULL;
-		if (e->cond.t->type == &typenoreturn)
+		if (typeeval(e->cond.t->type) == &typenoreturn)
 			return r;
-		if (e->cond.f->type == &typenoreturn)
+		if (typeeval(e->cond.f->type) == &typenoreturn)
 			return l;
-		return funcinst(f, IPHI, e->type->repr, label[3], l, label[4], r, NULL);
+		return funcinst(f, IPHI, typeeval(e->type)->repr, label[3], l, label[4], r, NULL);
 	case EXPRASSIGN:
 		r = funcexpr(f, e->assign.r);
 		if (e->assign.l->kind == EXPRTEMP) {
-			if (e->assign.l->type->kind == TYPESTRUCT || e->assign.l->type->kind == TYPEUNION) {
-				lval = (struct lvalue){funcalloctemp(f, QUALMUT, e->assign.l->type, 0, 0)};
-				r = funcstore(f, e->assign.l->type, QUALMUT, lval, r);
+			if (typeeval(e->assign.l->type)->kind == TYPESTRUCT || typeeval(e->assign.l->type)->kind == TYPEUNION) {
+				lval = (struct lvalue){funcalloctemp(f, QUALMUT, typeeval(e->assign.l->type), 0, 0)};
+				r = funcstore(f, typeeval(e->assign.l->type), QUALMUT, lval, r);
 			}
 			e->assign.l->temp = r;
 		} else {
 			lval = funclval(f, e->assign.l);
-			r = funcstore(f, e->assign.l->type, e->assign.l->qual, lval, r);
+			r = funcstore(f, typeeval(e->assign.l->type), e->assign.l->qual, lval, r);
 		}
 		return r;
 	case EXPRCOMMA:
@@ -950,16 +955,13 @@ funcexpr(struct func *f, struct expr *e)
 		case BUILTINVASTART:
 			l = funcexpr(f, e->base);
 			funcinst(f, IVASTART, NULL, l);
-			break;
+			return l;
 		case BUILTINVAARG:
 			/* https://todo.sr.ht/~mcf/cproc/52 */
-			if (!(e->type->prop & PROPSCALAR))
+			if (!(typeeval(e->type)->prop & PROPSCALAR))
 				error(&tok.loc, "va_arg with non-scalar type is not yet supported");
 			l = funcexpr(f, e->base);
-			return funcinst(f, IVAARG, e->type->repr, l);
-		case BUILTINVAEND:
-			/* no-op */
-			break;
+			return funcinst(f, IVAARG, typeeval(e->type)->repr, l);
 		case BUILTINALLOCA:
 			l = funcexpr(f, e->base);
 			return funcinst(f, IALLOC16, &iptr, l);
@@ -1020,7 +1022,7 @@ funcinit(struct func *func, struct decl *d, struct init *init, char *name)
 	if (!init)
 		return;
 	for (; init; init = init->next) {
-		zero(func, d->value, d->type->align, offset, init->start);
+		zero(func, d->value, typeeval(d->type)->align, offset, init->start);
 		dst.bits = init->bits;
 		if (init->expr->kind == EXPRSTRING) {
 			for (i = 0; i < init->expr->string.size && i < init->end - init->start; ++i) {
@@ -1030,16 +1032,16 @@ funcinit(struct func *func, struct decl *d, struct init *init, char *name)
 			offset = init->start + i;
 		} else {
 			if (offset < init->end && (dst.bits.before || dst.bits.after))
-				zero(func, d->value, d->type->align, offset, init->end);
+				zero(func, d->value, typeeval(d->type)->align, offset, init->end);
 			dst.addr = funcinst(func, IADD, &iptr, d->value, mkintconst(&iptr, init->start));
 			src = funcexpr(func, init->expr);
-			funcstore(func, init->expr->type, init->expr->qual | QUALMUT, dst, src);
+			funcstore(func, typeeval(init->expr->type), init->expr->qual | QUALMUT, dst, src);
 			offset = init->end;
 		}
 		if (max < offset)
 			max = offset;
 	}
-	zero(func, d->value, d->type->align, max, d->type->size);
+	zero(func, d->value, typeeval(d->type)->align, max, typeeval(d->type)->size);
 }
 
 static void
@@ -1149,10 +1151,10 @@ emittype(struct type *t)
 		return;
 	t->repr = xmalloc(sizeof(*t->repr));
 	t->repr->base = 'l';
-	t->repr->abi.str = t->structunion.tag;
+	t->repr->abi.str = NULL;
 	t->repr->abi.id = ++id;
 	for (m = t->structunion.members; m; m = m->next) {
-		for (sub = m->type; sub->kind == TYPEARRAY; sub = sub->base)
+		for (sub = typeeval(m->type); sub->kind == TYPEARRAY; sub = typeeval(sub->base))
 			;
 		emittype(sub);
 	}
@@ -1166,11 +1168,11 @@ emittype(struct type *t)
 				if (other->offset <= m->offset)
 					m = other;
 			}
-			off = m->offset + m->type->size;
+			off = m->offset + typeeval(m->type)->size;
 		} else {
 			fputs("{ ", stdout);
 		}
-		for (i = 1, sub = m->type; sub->kind == TYPEARRAY; sub = sub->base)
+		for (i = 1, sub = typeeval(m->type); sub->kind == TYPEARRAY; sub = typeeval(sub->base))
 			i *= sub->array.length;
 		emitrepr(sub->repr, true, true);
 		if (i > 1)
@@ -1263,8 +1265,8 @@ emitfunc(struct func *f, bool global)
 	if (global)
 		puts("export");
 	fputs("function ", stdout);
-	if (f->type->base != &typevoid) {
-		emitrepr(f->type->base->repr, true, false);
+	if (f->type->base != &typevoid.gen) {
+		emitrepr(typeeval(f->type->base)->repr, true, false);
 		putchar(' ');
 	}
 	emitvalue(f->decl->value);
@@ -1276,8 +1278,11 @@ emitfunc(struct func *f, bool global)
 		putchar(' ');
 		emitvalue(p->value);
 	}
-	if (f->type->func.isvararg)
-		fputs(", ...", stdout);
+	if (f->type->func.isvararg) {
+		if (p != f->type->func.params)
+			fputs(", ", stdout);
+		fputs("...", stdout);
+	}
 	puts(") {");
 	for (b = f->start; b; b = b->next) {
 		emitvalue(&b->label);
@@ -1316,8 +1321,8 @@ dataitem(struct expr *expr, uint64_t size)
 		dataitem(expr->binary.r, 0);
 		break;
 	case EXPRCONST:
-		if (expr->type->prop & PROPFLOAT)
-			printf("%c_%.*g", expr->type->size == 4 ? 's' : 'd', DECIMAL_DIG, expr->constant.f);
+		if (typeeval(expr->type)->prop & PROPFLOAT)
+			printf("%c_%.*g", typeeval(expr->type)->size == 4 ? 's' : 'd', DECIMAL_DIG, expr->constant.f);
 		else
 			printf("%" PRIu64, expr->constant.i);
 		break;
@@ -1346,9 +1351,9 @@ emitdata(struct decl *d, struct init *init)
 	uint64_t offset = 0, start, end, bits = 0;
 
 	if (!d->align)
-		d->align = d->type->align;
-	else if (d->align < d->type->align)
-		error(&tok.loc, "object requires alignment %d, which is stricter than %d", d->type->align, d->align);
+		d->align = typeeval(d->type)->align;
+	else if (d->align < typeeval(d->type)->align)
+		error(&tok.loc, "object requires alignment %d, which is stricter than %d", typeeval(d->type)->align, d->align);
 	for (cur = init; cur; cur = cur->next)
 		cur->expr = eval(cur->expr, EVALINIT);
 	if (d->linkage == LINKEXTERN)
@@ -1380,7 +1385,7 @@ emitdata(struct decl *d, struct init *init)
 			printf("z %" PRIu64 ", ", start - offset);
 		if (cur->bits.before || cur->bits.after) {
 			/* XXX: little-endian specific */
-			assert(cur->expr->type->prop & PROPINT);
+			assert(typeeval(cur->expr->type)->prop & PROPINT);
 			assert(cur->expr->kind == EXPRCONST);
 			bits |= cur->expr->constant.i << cur->bits.before % 8;
 			for (offset = start; offset < end; ++offset, bits >>= 8)
@@ -1392,7 +1397,7 @@ emitdata(struct decl *d, struct init *init)
 			*/
 			bits &= 0x7f >> (cur->bits.after + 7) % 8;
 		} else {
-			printf("%c ", cur->expr->type->kind == TYPEARRAY ? cur->expr->type->base->repr->ext : cur->expr->type->repr->ext);
+			printf("%c ", typeeval(cur->expr->type)->kind == TYPEARRAY ? typeeval(typeeval(cur->expr->type)->base)->repr->ext : typeeval(cur->expr->type)->repr->ext);
 			dataitem(cur->expr, cur->end - cur->start);
 			fputs(", ", stdout);
 		}
@@ -1402,8 +1407,8 @@ emitdata(struct decl *d, struct init *init)
 		printf("b %u, ", (unsigned)bits);
 		++offset;
 	}
-	assert(offset <= d->type->size);
-	if (offset < d->type->size)
-		printf("z %" PRIu64 " ", d->type->size - offset);
+	assert(offset <= typeeval(d->type)->size);
+	if (offset < typeeval(d->type)->size)
+		printf("z %" PRIu64 " ", typeeval(d->type)->size - offset);
 	puts("}");
 }

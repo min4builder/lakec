@@ -21,9 +21,6 @@ scopeinit(void)
 		{"__builtin_types_compatible_p",
 			{.kind = DECLBUILTIN, .builtin = BUILTINTYPESCOMPATIBLEP}},
 		{"__builtin_va_arg",     {.kind = DECLBUILTIN, .builtin = BUILTINVAARG}},
-		{"__builtin_va_copy",    {.kind = DECLBUILTIN, .builtin = BUILTINVACOPY}},
-		{"__builtin_va_end",     {.kind = DECLBUILTIN, .builtin = BUILTINVAEND}},
-		{"__builtin_va_start",   {.kind = DECLBUILTIN, .builtin = BUILTINVASTART}},
 		{"alloca",   {.kind = DECLBUILTIN, .builtin = BUILTINALLOCA}},
 		{"offsetof", {.kind = DECLBUILTIN, .builtin = BUILTINOFFSETOF}},
 	};
@@ -33,32 +30,32 @@ scopeinit(void)
 	for (b = builtins; b < builtins + LEN(builtins); ++b)
 		scopeputdecl(&filescope, b->name, &b->decl);
 
-	d = mkdecl(DECLCONST, &typebool, QUALNONE, LINKNONE);
+	d = mkdecl(DECLCONST, &typebool.gen, QUALNONE, LINKNONE);
 	d->value = mkintconst(typebool.repr, 0);
 	scopeputdecl(&filescope, "false", d);
-	d = mkdecl(DECLCONST, &typebool, QUALNONE, LINKNONE);
+	d = mkdecl(DECLCONST, &typebool.gen, QUALNONE, LINKNONE);
 	d->value = mkintconst(typebool.repr, 1);
 	scopeputdecl(&filescope, "true", d);
 
-	scopeputtag(&filescope, "__builtin_va_list", &typevalist);
-	scopeputtag(&filescope, "noreturn", &typenoreturn);
-	scopeputtag(&filescope, "bool", &typebool);
-	scopeputtag(&filescope, "char", &typechar);
-	scopeputtag(&filescope, "f32", &typef32);
-	scopeputtag(&filescope, "f64", &typef64);
-	scopeputtag(&filescope, "i8", &typei8);
-	scopeputtag(&filescope, "i16", &typei16);
-	scopeputtag(&filescope, "i32", &typei32);
-	scopeputtag(&filescope, "i64", &typei64);
-	scopeputtag(&filescope, "u8", &typeu8);
-	scopeputtag(&filescope, "u16", &typeu16);
-	scopeputtag(&filescope, "u32", &typeu32);
-	scopeputtag(&filescope, "u64", &typeu64);
-	scopeputtag(&filescope, "rune", targ->typerune);
-	scopeputtag(&filescope, "int", targ->typeint);
-	scopeputtag(&filescope, "uint", targ->typeuint);
-	scopeputtag(&filescope, "long", targ->typelong);
-	scopeputtag(&filescope, "ulong", targ->typeulong);
+	scopeputtag(&filescope, "__builtin_va_list", &typevalist.gen);
+	scopeputtag(&filescope, "noreturn", &typenoreturn.gen);
+	scopeputtag(&filescope, "bool", &typebool.gen);
+	scopeputtag(&filescope, "char", &typechar.gen);
+	scopeputtag(&filescope, "f32", &typef32.gen);
+	scopeputtag(&filescope, "f64", &typef64.gen);
+	scopeputtag(&filescope, "i8", &typei8.gen);
+	scopeputtag(&filescope, "i16", &typei16.gen);
+	scopeputtag(&filescope, "i32", &typei32.gen);
+	scopeputtag(&filescope, "i64", &typei64.gen);
+	scopeputtag(&filescope, "u8", &typeu8.gen);
+	scopeputtag(&filescope, "u16", &typeu16.gen);
+	scopeputtag(&filescope, "u32", &typeu32.gen);
+	scopeputtag(&filescope, "u64", &typeu64.gen);
+	scopeputtag(&filescope, "rune", &targ->typerune->gen);
+	scopeputtag(&filescope, "int", &targ->typeint->gen);
+	scopeputtag(&filescope, "uint", &targ->typeuint->gen);
+	scopeputtag(&filescope, "long", &targ->typelong->gen);
+	scopeputtag(&filescope, "ulong", &targ->typeulong->gen);
 }
 
 struct scope *
@@ -108,10 +105,10 @@ scopegetdecl(struct scope *s, const char *name, bool recurse)
 	return d;
 }
 
-struct type *
+struct typegen *
 scopegettag(struct scope *s, const char *name, bool recurse)
 {
-	struct type *t;
+	struct typegen *t;
 	struct mapkey k;
 
 	mapkey(&k, name, strlen(name));
@@ -137,7 +134,7 @@ scopeputdecl(struct scope *s, const char *name, struct decl *d)
 }
 
 void
-scopeputtag(struct scope *s, const char *name, struct type *t)
+scopeputtag(struct scope *s, const char *name, struct typegen *t)
 {
 	struct mapkey k;
 

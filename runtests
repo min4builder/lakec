@@ -20,7 +20,7 @@ for test ; do
 		set -- $LCQBE -E -I test/ "$test"
 	else
 		echo "invalid test '$test'" >&2
-		set -- false
+		continue
 	fi
 	if "$@" >"$got" 2>&1; diff -u "$want" "$got"; then
 		result="PASS"

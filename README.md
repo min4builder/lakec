@@ -45,11 +45,11 @@ Features:
 - Full-blown pointers, with pointer arithmetic and no need for `unsafe`
   blocks
 - `goto` and other unsafe things
+- Parametric polymorphism (with no instancing of any sort)
 - (WIP) Good standard library ([Plan 9 libc]-inspired)
 
 Future features:
 
-- Generics (partially designed, can do some of it with macros)
 - Easier error management (return values, with a twist!)
 - Proper modularity (with headers, but no global namespace pollution)
 - Standard build system, to avoid proliferation of Make, autoconf, CMake,

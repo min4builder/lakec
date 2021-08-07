@@ -1,4 +1,4 @@
-x struct s (
+x struct (
 	s [5]char,
 	f f32,
 );

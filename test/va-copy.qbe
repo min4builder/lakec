@@ -1,0 +1,42 @@
+function $f(...) {
+@start.1
+	%.1 =l alloc8 32
+	%.3 =l alloc8 32
+	%.16 =l alloc8 32
+@body.2
+	%.2 =l add %.1, 0
+	vastart %.3
+	%.4 =l loadl %.3
+	storel %.4, %.2
+	%.5 =l add %.3, 8
+	%.6 =l add %.2, 8
+	%.7 =l loadl %.5
+	storel %.7, %.6
+	%.8 =l add %.5, 8
+	%.9 =l add %.6, 8
+	%.10 =l loadl %.8
+	storel %.10, %.9
+	%.11 =l add %.8, 8
+	%.12 =l add %.9, 8
+	%.13 =l loadl %.11
+	storel %.13, %.12
+	%.14 =l add %.11, 8
+	%.15 =l add %.12, 8
+	%.17 =l loadl %.1
+	storel %.17, %.16
+	%.18 =l add %.1, 8
+	%.19 =l add %.16, 8
+	%.20 =l loadl %.18
+	storel %.20, %.19
+	%.21 =l add %.18, 8
+	%.22 =l add %.19, 8
+	%.23 =l loadl %.21
+	storel %.23, %.22
+	%.24 =l add %.21, 8
+	%.25 =l add %.22, 8
+	%.26 =l loadl %.24
+	storel %.26, %.25
+	%.27 =l add %.24, 8
+	%.28 =l add %.25, 8
+	ret
+}

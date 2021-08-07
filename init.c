@@ -70,7 +70,7 @@ updatearray(struct type *t, uint64_t i)
 		return;
 	if (++i > t->array.length) {
 		t->array.length = i;
-		t->size = i * t->base->size;
+		t->size = i * typeeval(t->base)->size;
 	}
 }
 
@@ -94,11 +94,11 @@ findmember(struct initparser *p, char *name)
 		if (m->name) {
 			if (strcmp(m->name, name) == 0) {
 				p->sub->mem = m;
-				subobj(p, m->type, m->offset);
+				subobj(p, typeeval(m->type), m->offset);
 				return true;
 			}
 		} else {
-			subobj(p, m->type, m->offset);
+			subobj(p, typeeval(m->type), m->offset);
 			if (findmember(p, name))
 				return true;
 			--p->sub;
@@ -128,7 +128,7 @@ designator(struct scope *s, struct initparser *p)
 			else if (p->sub->idx >= t->array.length)
 				error(&tok.loc, "index designator is larger than array length");
 			expect(TRBRACK, "for index designator");
-			subobj(p, t->base, p->sub->idx * t->base->size);
+			subobj(p, typeeval(t->base), p->sub->idx * typeeval(t->base)->size);
 			break;
 		case TPERIOD:
 			if (t->kind != TYPESTRUCT && t->kind != TYPEUNION)
@@ -155,12 +155,12 @@ focus(struct initparser *p)
 		p->sub->idx = 0;
 		if (p->sub->type->incomplete)
 			updatearray(p->sub->type, p->sub->idx);
-		t = p->sub->type->base;
+		t = typeeval(p->sub->type->base);
 		break;
 	case TYPESTRUCT:
 	case TYPEUNION:
 		p->sub->mem = p->sub->type->structunion.members;
-		t = p->sub->mem->type;
+		t = typeeval(p->sub->mem->type);
 		break;
 	}
 	subobj(p, t, 0);
@@ -180,14 +180,14 @@ advance(struct initparser *p)
 			if (t->incomplete)
 				updatearray(t, p->sub->idx);
 			if (p->sub->idx < t->array.length) {
-				subobj(p, t->base, t->base->size * p->sub->idx);
+				subobj(p, typeeval(t->base), typeeval(t->base)->size * p->sub->idx);
 				return;
 			}
 			break;
 		case TYPESTRUCT:
 			p->sub->mem = p->sub->mem->next;
 			if (p->sub->mem) {
-				subobj(p, p->sub->mem->type, p->sub->mem->offset);
+				subobj(p, typeeval(p->sub->mem->type), p->sub->mem->offset);
 				return;
 			}
 			break;
@@ -199,12 +199,13 @@ advance(struct initparser *p)
 
 /* 6.7.9 Initialization */
 struct init *
-parseinit(struct scope *s, struct type *t)
+parseinit(struct scope *s, struct typegen *type)
 {
 	struct initparser p;
 	struct expr *expr;
 	struct type *base;
 	struct bitfield bits;
+	struct type *t = typeeval(type);
 
 	p.cur = NULL;
 	p.sub = p.obj;
@@ -239,24 +240,23 @@ parseinit(struct scope *s, struct type *t)
 			t = p.sub->type;
 			switch (t->kind) {
 			case TYPEARRAY:
-				if (!expr->decayed || expr->base->kind != EXPRSTRING)
+				if (expr->kind != EXPRSTRING)
 					break;
-				base = t->base;
+				base = typeeval(t->base);
 				/* XXX: wide string literals */
 				if (!(base->prop & PROPCHAR))
 					break;
-				expr = expr->base;
 				if (t->incomplete)
 					updatearray(t, expr->string.size);
 				goto add;
 			case TYPESTRUCT:
 			case TYPEUNION:
-				if (typecompatible(expr->type, t))
+				if (typeequal(expr->type, &t->gen))
 					goto add;
 				break;
 			default:  /* scalar type */
 				assert(t->prop & PROPSCALAR);
-				expr = exprconvert(expr, QUALNONE, t);
+				expr = exprconvert(expr, QUALNONE, &t->gen);
 				goto add;
 			}
 			focus(&p);

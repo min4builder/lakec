@@ -1,0 +1,19 @@
+function l $f(l %.1) {
+@start.1
+	%.2 =l alloc8 8
+	storel %.1, %.2
+@body.2
+	%.3 =l loadl %.2
+	ret %.3
+}
+function $g() {
+@start.3
+	%.1 =l alloc8 8
+@body.4
+	%.2 =l add %.1, 0
+	storew 0, %.2
+	%.3 =l loadl %.1
+	%.4 =l call $f(l %.3)
+	storel %.4, %.1
+	ret
+}

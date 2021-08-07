@@ -43,7 +43,7 @@ mangletype(struct type **tstack, int *top, struct type *t, char *w, char *max)
 		return w;
 
 	for (i = 0; i < *top; i++) {
-		if (typesame(tstack[i], t)) {
+		if (typeequal(&tstack[i]->gen, &t->gen)) {
 			*w++ = 'S';
 			if (max-w < 1)
 				return w;
@@ -100,16 +100,15 @@ mangletype(struct type **tstack, int *top, struct type *t, char *w, char *max)
 			*w++ = 'V';
 		if (!(t->qual & QUALMUT))
 			*w++ = 'K';
-		w = mangletype(tstack, top, t->base, w, max);
+		w = mangletype(tstack, top, typeeval(t->base), w, max);
 		tstack[(*top)++] = t;
 		break;
 	case TYPEFUNC:
 		*w++ = 'F';
-		w = mangletype(tstack, top, t->base, w, max);
-		if (t->func.paraminfo)
-			for (p = t->func.params; p; p = p->next)
-				w = mangletype(tstack, top, p->type, w, max);
-		if ((!t->func.paraminfo || t->func.isvararg) && max-w >= 1)
+		w = mangletype(tstack, top, typeeval(t->base), w, max);
+		for (p = t->func.params; p; p = p->next)
+			w = mangletype(tstack, top, typeeval(p->type), w, max);
+		if (t->func.isvararg && max-w >= 1)
 			*w++ = 'z';
 		if (max-w >= 1)
 			*w++ = 'E';
@@ -117,16 +116,13 @@ mangletype(struct type **tstack, int *top, struct type *t, char *w, char *max)
 		break;
 	case TYPESTRUCT:
 	case TYPEUNION:
-		if (t->structunion.tag) {
-			w += snprintf(w, max-w, "%ld%s", strlen(t->structunion.tag), t->structunion.tag);
-			if (w > max) w = max;
-		} else if (max-w >= 2) {
+		if (max-w >= 2) {
 			char name[64], *n = name;
 			int nt = *top;
 			*n++ = '_';
 			*n++ = t->kind == TYPESTRUCT ? 'S' : 'U';
 			for (m = t->structunion.members; m; m = m->next)
-				n = mangletype(tstack, top, m->type, n, name + sizeof(name));
+				n = mangletype(tstack, top, typeeval(m->type), n, name + sizeof(name));
 			w += snprintf(w, max-w, "%ld%.*s", n-name, (int) (n-name), name);
 			if (w > max) w = max;
 			*top = nt;
@@ -138,7 +134,7 @@ mangletype(struct type **tstack, int *top, struct type *t, char *w, char *max)
 }
 
 char *
-mangleuop(enum tokenkind t, struct type *t1)
+mangleuop(enum tokenkind t, struct typegen *t1)
 {
 	static char n[65];
 	struct type *tstack[16];
@@ -146,13 +142,13 @@ mangleuop(enum tokenkind t, struct type *t1)
 	char *w = n;
 
 	w += snprintf(w, sizeof(n), "_Z%s", optable[t]);
-	w = mangletype(tstack, &top, t1, w, n + sizeof(n) - 1);
+	w = mangletype(tstack, &top, typeeval(t1), w, n + sizeof(n) - 1);
 	*w = '\0';
 	return n;
 }
 
 char *
-manglebop(enum tokenkind t, struct type *t1, struct type *t2)
+manglebop(enum tokenkind t, struct typegen *t1, struct typegen *t2)
 {
 	static char n[65];
 	struct type *tstack[16];
@@ -160,14 +156,14 @@ manglebop(enum tokenkind t, struct type *t1, struct type *t2)
 	char *w = n;
 
 	w += snprintf(w, sizeof(n), "_Z%s", optable[t]);
-	w = mangletype(tstack, &top, t1, w, n + sizeof(n) - 1);
-	w = mangletype(tstack, &top, t2, w, n + sizeof(n) - 1);
+	w = mangletype(tstack, &top, typeeval(t1), w, n + sizeof(n) - 1);
+	w = mangletype(tstack, &top, typeeval(t2), w, n + sizeof(n) - 1);
 	*w = '\0';
 	return n;
 }
 
 char *
-manglegen(enum tokenkind t, struct type *f)
+manglegen(enum tokenkind t, struct typegen *f)
 {
 	struct type *tstack[16];
 	int top = 0;
@@ -177,10 +173,10 @@ manglegen(enum tokenkind t, struct type *f)
 
 	len = 0;
 	len += snprintf(buf + len, sizeof(buf) - len, "_Z%s", optable[t]);
-	for (p = f->func.params; p; p = p->next) {
+	for (p = typeeval(f)->func.params; p; p = p->next) {
 		if (len > sizeof(buf))
 			break;
-		len += mangletype(tstack, &top, p->type, buf + len, buf + sizeof(buf)) - (buf + len);
+		len += mangletype(tstack, &top, typeeval(p->type), buf + len, buf + sizeof(buf)) - (buf + len);
 	}
 	n = malloc(len + 1);
 	memcpy(n, buf, len);

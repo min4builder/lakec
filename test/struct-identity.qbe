@@ -25,4 +25,3 @@ function $f() {
 	storel %.15, %.14
 	ret
 }
-data $_ = align 4 { z 12 }

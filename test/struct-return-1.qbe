@@ -1,5 +1,5 @@
-type :s.1 = { w, }
-function :s.1 $f() {
+type :.1 = { w, }
+function :.1 $f() {
 @start.1
 	%.1 =l alloc4 4
 @body.2

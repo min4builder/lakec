@@ -1,0 +1,8 @@
+f[type a](x *a) *a {
+	return x;
+}
+
+g() void {
+	auto x mut *int = 0;
+	x = f[int](x);
+}

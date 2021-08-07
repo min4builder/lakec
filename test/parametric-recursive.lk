@@ -1,0 +1,3 @@
+type list[type T] struct(next *list T, elem T);
+
+list list int = (0, 42);

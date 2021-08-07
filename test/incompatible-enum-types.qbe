@@ -1,0 +1,1 @@
+test/incompatible-enum-types.lk:2:8: error: object 'x' redeclared with different type

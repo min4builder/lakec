@@ -1,5 +1,5 @@
 type x int;
 
-f1(_ (_ x) int) void;
-f1(_ *(_ int) int) void;
+f1(_ *(_ x) int) void;
+f1(_ *(_ int) x) void;
 

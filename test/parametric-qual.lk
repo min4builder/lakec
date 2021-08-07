@@ -1,0 +1,6 @@
+type a[type T] mut T;
+
+f() void {
+	auto a a int = 0;
+	a++;
+}

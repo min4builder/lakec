@@ -44,6 +44,21 @@ Multiple variables with the same type may be declared at once:
         return a1 + a2;
     }
 
+Parametric functions and variables:
+
+    f[type T](n *T) *T { return n; }
+    x [type T]*(*T)void = &f;
+
+Since the type isn't known, you can't do anything with it directly.
+It is possible to manipulate it behind pointers, however.
+
+When a parametric variable or function is referenced,
+you must specify which types it's going to be instanced with:
+
+    f[(*int)void](x[int])
+
+There is higher-level and higher-kinded polymorphism.
+
 Operator overloading:
 
     .+(a, b complex) complex {
@@ -62,8 +77,8 @@ their prefix versions.
 
 Other things:
 
-    f() noreturn; /* f cannot return */
-    #[name "__internal_g"] g() void; /* g's name in assembly (and other languages) */
+    f() noreturn; /* f doesn't return */
+    #[name "__internal_g"] g() void; /* g's name in assembly (and C) */
     static_assert(1, "1 is not true"); /* compile-time assert */
 
 ## Types
@@ -97,21 +112,22 @@ Composite types:
     union(x T, y U) /* tagless union (be careful with these) */
     enum(A, B, C = 3) /* int or uint with prebuilt constants */
     (_, _ T, _ U) V /* function type */
+    [type a, b, c]T /* parametric type */
 
 Struct and union tags:
 
-    struct a(
+    type a struct(
        ...
     );
     x = [a](blah);
 
-Tagless structs and unions are structurally typed:
+Structs and unions are structurally typed:
 
-    struct a(x, y int);
-    struct b(x, y int);
-    typedef c struct(a, b int);
-    /* c is compatible with both a and b, but a and b are not compatible with
-       each other. Notice the field names are different */
+    type a struct(x, y int);
+    type b struct(x, y int);
+    type c struct(a, b int);
+    /* a, b and c are compatible with each other.
+       Notice the field names are different */
 
 In C, `const` can be used to indicate that something will not be changed.
 In Lake, `mut` must be used to indicate that something *may* be changed.
@@ -121,10 +137,15 @@ and is in general more useful, but it does make `mut` mandatory.
     *mut int /* pointer to mutable int */
     mut *[]int /* mutable pointer to (constant) array of ints */
     mut *mut []int /* mutable pointer to mutable array of ints */
-    mut []int == []mut int /* use the first, please */
+    mut []int == []mut int /* the first one is idiomatic */
 
 `volatile` and `restrict` also work as in C,
 but are called `#volatile` and `#restrict` respectively.
+
+Parametric types can be applied with `[]` or, if it's only one argument, a space:
+
+    type list [type T]struct(next *list T, elem T);
+    list T == list[T] /* the first one is idiomatic */
 
 `#nocopy` can be used to say a value must be used AT MOST once.
 This gives it "move semantics" more or less as in Rust:
@@ -196,12 +217,9 @@ Stopgap solutions (that will be replaced in the future):
 - `__builtin_nanf("") f64`: quiet NaN value.
 - `__builtin_types_compatible_p(t, u) bool`: Test whether the two types
   are compatible.
-- `__builtin_va_arg(list *__builtin_va_list, type) type`: Take the next
+- `__builtin_va_arg(list *mut __builtin_va_list, type) type`: Take the next
   argument from the vararg list.
 - `__builtin_va_copy(a *mut __builtin_va_list, b *__builtin_va_list) void`:
   Copy a `va_list`.
-- `__builtin_va_end(list *mut __builtin_va_list) void`: End the reading of
-  varargs.
-- `__builtin_va_start(list *mut __builtin_va_list) void`: Start the reading
-  of varargs.
+- `__builtin_va_start() *mut __builtin_va_list`: Start the reading of varargs.
 

@@ -62,7 +62,7 @@ C, with:
 
       a *[32]int = &[[32]int](0);
       type a struct(x : 3, _ : 0, y : -4, a, b int);
-      e a = (2, 4);
+      e = [a](2, 4);
       b = a->[*int];
       c = sizeof(b);
       d = sizeof[int];
@@ -77,25 +77,22 @@ C, with:
 
 - easier resource management
 
-      define own[T] = #nocopy #nodrop T;
-      define alloc[T] = (alloc_(sizeof[T])->[own *T]);
-      alloc_(_ ulong) own *void;
-      free(_ own *void) void;
+      type own [type T] #nocopy #nodrop T;
+      define alloc[T] = alloc_[T](sizeof[T]);
+      alloc_[type T](_ ulong) own *T;
+      free[type T](_ own *T) void;
 
       auto x = alloc[int];
       auto y = x;
-      free(y); /* if you comment this line, #nodrop will error */
-      // free(x); /* if you uncomment this line, #nocopy will error */
+      free[int](y); /* if you comment this line, #nodrop will error */
+      // free[int](x); /* if you uncomment this line, #nocopy will error */
 
-- type-safe & lw generics (WIP, no real syntax)
+- type-safe & lightweight generics
 
-      define Vec[T] = struct(len, cap, size ulong, vec *mut []T);
-      a Vec int = (0, 0, sizeof[int], 0);
-      define vecnew[T] {
-          (vecnew_(sizeof[T])->[Vec T])
-      }
-      vecnew_(size ulong) Vec void {
-          return [Vec void](0, 0, size, 0);
+      type Vec [type T]struct(len, cap ulong, vec ?*mut []T);
+      empty [type T]Vec T = (0, 0, 0->[*mut []T]);
+      vecget[type T](vec Vec T, idx uint) *mut T {
+          return &vec.vec[idx]; // error: T is an incomplete type
       }
 
 - easier error handling (switch/continue DONE, result)

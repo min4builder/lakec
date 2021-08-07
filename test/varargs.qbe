@@ -3,19 +3,37 @@ function $f(w %.1, ...) {
 	%.2 =l alloc4 4
 	storew %.1, %.2
 	%.3 =l alloc8 32
+	%.5 =l alloc8 32
 @body.2
-	vastart %.3
+	%.4 =l add %.3, 0
+	vastart %.5
+	%.6 =l loadl %.5
+	storel %.6, %.4
+	%.7 =l add %.5, 8
+	%.8 =l add %.4, 8
+	%.9 =l loadl %.7
+	storel %.9, %.8
+	%.10 =l add %.7, 8
+	%.11 =l add %.8, 8
+	%.12 =l loadl %.10
+	storel %.12, %.11
+	%.13 =l add %.10, 8
+	%.14 =l add %.11, 8
+	%.15 =l loadl %.13
+	storel %.15, %.14
+	%.16 =l add %.13, 8
+	%.17 =l add %.14, 8
 @while_cond.3
-	%.4 =w loadsw %.2
-	%.5 =w cnew %.4, 0
-	jnz %.5, @while_body.4, @while_join.5
+	%.18 =w loadsw %.2
+	%.19 =w cnew %.18, 0
+	jnz %.19, @while_body.4, @while_join.5
 @while_body.4
-	%.6 =w vaarg %.3
-	%.7 =s vaarg %.3
-	%.8 =l vaarg %.3
-	%.9 =w loadsw %.2
-	%.10 =w sub %.9, 1
-	storew %.10, %.2
+	%.20 =w vaarg %.3
+	%.21 =s vaarg %.3
+	%.22 =l vaarg %.3
+	%.23 =w loadsw %.2
+	%.24 =w sub %.23, 1
+	storew %.24, %.2
 	jmp @while_cond.3
 @while_join.5
 	ret

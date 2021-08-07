@@ -11,10 +11,10 @@ cast(struct expr *expr)
 {
 	unsigned size;
 
-	size = expr->type->size;
-	if (expr->type->prop & PROPFLOAT)
+	size = typeeval(expr->type)->size;
+	if (typeeval(expr->type)->prop & PROPFLOAT)
 		size |= F;
-	else if (expr->type->prop & PROPINT && expr->type->basic.issigned)
+	else if (typeeval(expr->type)->prop & PROPINT && typeeval(expr->type)->basic.issigned)
 		size |= S;
 	switch (size) {
 	case 1:   expr->constant.i = (uint8_t)expr->constant.i;  break;
@@ -31,9 +31,9 @@ static void
 binary(struct expr *expr, enum tokenkind op, struct expr *l, struct expr *r)
 {
 	expr->kind = EXPRCONST;
-	if (l->type->prop & PROPFLOAT)
+	if (typeeval(l->type)->prop & PROPFLOAT)
 		op |= F;
-	else if (l->type->prop & PROPINT && l->type->basic.issigned)
+	else if (typeeval(l->type)->prop & PROPINT && typeeval(l->type)->basic.issigned)
 		op |= S;
 	switch (op) {
 	case TMUL:
@@ -130,21 +130,21 @@ eval(struct expr *expr, enum evalkind kind)
 		l = eval(expr->base, kind);
 		if (l->kind == EXPRCONST) {
 			expr->kind = EXPRCONST;
-			if (l->type->prop & PROPINT && expr->type->prop & PROPFLOAT)
+			if (typeeval(l->type)->prop & PROPINT && typeeval(expr->type)->prop & PROPFLOAT)
 				expr->constant.f = l->constant.i;
-			else if (l->type->prop & PROPFLOAT && expr->type->prop & PROPINT)
+			else if (typeeval(l->type)->prop & PROPFLOAT && typeeval(expr->type)->prop & PROPINT)
 				expr->constant.i = l->constant.f;
 			else
 				expr->constant = l->constant;
 			cast(expr);
-		} else if (l->type->kind == TYPEPOINTER) {
+		} else if (typeeval(l->type)->kind == TYPEPOINTER) {
 			/*
 			A cast from a pointer to integer is not a valid constant
 			expression, but C11 allows implementations to recognize
 			other forms of constant expressions (6.6p10), and some
 			programs expect this functionality.
 			*/
-			if (expr->type->kind == TYPEPOINTER || expr->type->prop & PROPINT && expr->type->size == targ->typelong->size)
+			if (typeeval(expr->type)->kind == TYPEPOINTER || typeeval(expr->type)->prop & PROPINT && typeeval(expr->type)->size == ((struct type *) targ->typelong)->size)
 				expr = l;
 		}
 		break;
@@ -161,7 +161,7 @@ eval(struct expr *expr, enum evalkind kind)
 				break;
 			if (l->kind == EXPRCONST) {
 				binary(expr, expr->op, l, r);
-			} else if (l->kind == EXPRBINARY && l->type->kind == TYPEPOINTER && l->binary.r->kind == EXPRCONST) {
+			} else if (l->kind == EXPRBINARY && typeeval(l->type)->kind == TYPEPOINTER && l->binary.r->kind == EXPRCONST) {
 				if (l->op == TADD || l->op == TSUB) {
 					/* (P ± C1) + C2  ->  P + (C2 ± C1) */
 					expr->binary.l = l->binary.l;

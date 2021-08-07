@@ -8,7 +8,7 @@ type b struct (
 	etc mut []char,
 );
 
-_ struct c (
+type c struct (
 	g, h, i int,
 	blah mut []char,
 );

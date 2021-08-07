@@ -1,3 +1,5 @@
-f() struct s(x int) {
-	return [struct s](2);
+type s struct(x int);
+
+f() s {
+	return [s](2);
 }

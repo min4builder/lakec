@@ -1,0 +1,11 @@
+function $f() {
+@start.1
+	%.1 =l alloc4 4
+@body.2
+	%.2 =l add %.1, 0
+	storew 0, %.2
+	%.3 =w loadsw %.1
+	%.4 =w add %.3, 1
+	storew %.4, %.1
+	ret
+}

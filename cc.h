@@ -140,6 +140,9 @@ enum typekind {
 	TYPEFUNC,
 	TYPESTRUCT,
 	TYPEUNION,
+	TYPEPARAM,
+	TYPEVAR,
+	TYPEAPPLY,
 };
 
 enum typeprop {
@@ -158,7 +161,7 @@ enum typeprop {
 
 struct param {
 	char *name;
-	struct type *type;
+	struct typegen *type;
 	enum typequal qual;
 	struct value *value;
 	struct param *next;
@@ -171,21 +174,24 @@ struct bitfield {
 
 struct member {
 	char *name;
-	struct type *type;
+	struct typegen *type;
 	enum typequal qual;
 	uint64_t offset;
 	struct bitfield bits;
 	struct member *next;
 };
 
+struct typegen { int _ : 1; };
+
 struct type {
+	struct typegen gen;
 	enum typekind kind;
 	enum typeprop prop;
 	int align;
 	uint64_t size;
 	struct repr *repr;
 	union {
-		struct type *base;
+		struct typegen *base;
 		struct list link;  /* used only during construction of type */
 	};
 	/* qualifiers of the base type */
@@ -199,13 +205,26 @@ struct type {
 			uint64_t length;
 		} array;
 		struct {
-			_Bool isvararg, paraminfo;
+			_Bool isvararg;
 			struct param *params;
 		} func;
 		struct {
-			char *tag;
 			struct member *members;
 		} structunion;
+		struct {
+			struct type *parent, **position;
+			int num;
+			_Bool isrigid;
+		} var;
+		struct {
+			int nvars;
+		} param;
+		struct {
+			struct location loc;
+			struct type *val;
+			int nvars;
+			struct typegen **vars;
+		} apply;
 	};
 };
 
@@ -231,17 +250,14 @@ enum builtinkind {
 	BUILTINNANF,
 	BUILTINOFFSETOF,
 	BUILTINTYPESCOMPATIBLEP,
-	BUILTINVAARG,
-	BUILTINVACOPY,
-	BUILTINVAEND,
-	BUILTINVALIST,
 	BUILTINVASTART,
+	BUILTINVAARG,
 };
 
 struct decl {
 	enum declkind kind;
 	enum linkage linkage;
-	struct type *type;
+	struct typegen *type;
 	enum typequal qual;
 	struct value *value;
 	_Bool defined;
@@ -299,10 +315,8 @@ struct expr {
 	enum exprkind kind;
 	/* whether this expression is an lvalue */
 	_Bool lvalue;
-	/* whether this expression is a pointer decayed from an array or function designator */
-	_Bool decayed;
 	/* the unqualified type of the expression */
-	struct type *type;
+	struct typegen *type;
 	/* the type qualifiers of the object this expression refers to (ignored for non-lvalues) */
 	enum typequal qual;
 	enum tokenkind op;
@@ -393,20 +407,19 @@ _Bool consume(int);
 /* type */
 
 struct type *mktype(enum typekind, enum typeprop);
-struct type *mkpointertype(struct type *, enum typequal);
-struct type *mkarraytype(struct type *, enum typequal, uint64_t);
+struct type *mkapplytype(struct typegen *, int, struct typegen **);
+struct type *mkpointertype(struct typegen *, enum typequal);
+struct type *mkarraytype(struct typegen *, enum typequal, uint64_t);
 
-_Bool typecompatible(struct type *, struct type *);
-_Bool typeconvertible(struct type *, struct type *);
-_Bool typesame(struct type *, struct type *);
-struct type *typecomposite(struct type *, struct type *);
-struct type *typeunqual(struct type *, enum typequal *);
-struct type *typecommonreal(struct type *, unsigned, struct type *, unsigned);
-struct type *typepromote(struct type *, unsigned);
-enum typeprop typeprop(struct type *);
+_Bool typecast(struct typegen *, struct typegen *);
+_Bool typeequal(struct typegen *, struct typegen *);
+struct typegen *typecomposite(struct typegen *, struct typegen *);
+struct typegen *typecommonreal(struct typegen *, unsigned, struct typegen *, unsigned);
+struct typegen *typepromote(struct typegen *, unsigned);
 struct member *typemember(struct type *, const char *, uint64_t *);
+struct type *typeeval(struct typegen *);
 
-struct param *mkparam(char *, struct type *, enum typequal);
+struct param *mkparam(char *, struct typegen *, enum typequal);
 
 extern struct type typevoid;
 extern struct type typenoreturn;
@@ -434,9 +447,9 @@ void targinit(const char *);
 
 /* decl */
 
-struct decl *mkdecl(enum declkind, struct type *, enum typequal, enum linkage);
+struct decl *mkdecl(enum declkind, struct typegen *, enum typequal, enum linkage);
 _Bool decl(struct scope *, struct func *, _Bool);
-struct type *typename(struct scope *, enum typequal *);
+struct typegen *typename(struct scope *, enum typequal *);
 
 struct decl *stringdecl(struct expr *);
 
@@ -444,9 +457,9 @@ void emittentativedefns(void);
 
 /* mangle */
 
-char *mangleuop(enum tokenkind, struct type *);
-char *manglebop(enum tokenkind, struct type *, struct type *);
-char *manglegen(enum tokenkind, struct type *);
+char *mangleuop(enum tokenkind, struct typegen *);
+char *manglebop(enum tokenkind, struct typegen *, struct typegen *);
+char *manglegen(enum tokenkind, struct typegen *);
 
 /* scope */
 
@@ -457,8 +470,8 @@ struct scope *delscope(struct scope *);
 void scopeputdecl(struct scope *, const char *, struct decl *);
 struct decl *scopegetdecl(struct scope *, const char *, _Bool);
 
-void scopeputtag(struct scope *, const char *, struct type *);
-struct type *scopegettag(struct scope *, const char *, _Bool);
+void scopeputtag(struct scope *, const char *, struct typegen *);
+struct typegen *scopegettag(struct scope *, const char *, _Bool);
 
 extern struct scope filescope;
 
@@ -471,7 +484,7 @@ uint64_t intconstexpr(struct scope *, _Bool);
 void delexpr(struct expr *);
 
 struct expr *mkassignexpr(struct expr *, struct expr *);
-struct expr *exprconvert(struct expr *, enum typequal, struct type *);
+struct expr *exprconvert(struct expr *, enum typequal, struct typegen *);
 struct expr *exprtemp(struct expr **, struct expr *);
 struct expr *exprpromote(struct expr *);
 
@@ -487,7 +500,7 @@ struct expr *eval(struct expr *, enum evalkind);
 /* init */
 
 struct init *mkinit(uint64_t, uint64_t, struct bitfield, struct expr *);
-struct init *parseinit(struct scope *, struct type *);
+struct init *parseinit(struct scope *, struct typegen *);
 
 void stmt(struct func *, struct scope *);
 
