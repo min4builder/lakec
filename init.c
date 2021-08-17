@@ -237,7 +237,7 @@ parseinit(struct scope *s, struct typegen *type)
 		}
 		expr = condexpr(s);
 		for (;;) {
-			t = p.sub->type;
+			t = typequal(p.sub->type, NULL);
 			switch (t->kind) {
 			case TYPEARRAY:
 				if (expr->kind != EXPRSTRING)
@@ -256,7 +256,7 @@ parseinit(struct scope *s, struct typegen *type)
 				break;
 			default:  /* scalar type */
 				assert(t->prop & PROPSCALAR);
-				expr = exprconvert(expr, QUALNONE, &t->gen);
+				expr = exprconvert(expr, &p.sub->type->gen);
 				goto add;
 			}
 			focus(&p);

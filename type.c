@@ -47,9 +47,13 @@ struct type typevalistptr = {
 	.kind = TYPEPOINTER, .size = 8, .align = 8, .repr = &i64, .base = &typevalist.gen,
 	.prop = PROPOBJECT|PROPDERIVED|PROPSCALAR,
 };
-struct type typevalistmutptr = {
-	.kind = TYPEPOINTER, .size = 8, .align = 8, .repr = &i64, .base = &typevalist.gen,
-	.qual = QUALMUT, .prop = PROPOBJECT|PROPDERIVED|PROPSCALAR,
+static struct type typevalistmut = {
+	.kind = TYPEQUAL, .size = 0, .align = 0, .repr = NULL, .base = &typevalist.gen,
+	.qual.qual = QUALMUT, .prop = PROPDERIVED,
+};
+struct type typevalistptrmut = {
+	.kind = TYPEPOINTER, .size = 8, .align = 8, .repr = &i64, .base = &typevalistmut.gen,
+	.prop = PROPOBJECT|PROPDERIVED|PROPSCALAR,
 };
 
 struct type *
@@ -64,7 +68,6 @@ mktype(enum typekind kind, enum typeprop prop)
 	t->align = 0;
 	t->repr = 0;
 	t->base = 0;
-	t->qual = QUALNONE;
 	t->incomplete = false;
 
 	return t;
@@ -85,13 +88,24 @@ mkapplytype(struct typegen *base, int nvars, struct typegen **vars)
 }
 
 struct type *
-mkpointertype(struct typegen *base, enum typequal qual)
+mkqualtype(struct typegen *base, enum typequal tq)
+{
+	struct type *t;
+
+	t = mktype(TYPEQUAL, PROPDERIVED);
+	t->base = base;
+	t->qual.qual = tq;
+
+	return t;
+}
+
+struct type *
+mkpointertype(struct typegen *base)
 {
 	struct type *t;
 
 	t = mktype(TYPEPOINTER, PROPOBJECT|PROPDERIVED|PROPSCALAR);
 	t->base = base;
-	t->qual = qual;
 	t->size = 8;
 	t->align = 8;
 	t->repr = &i64;
@@ -100,13 +114,12 @@ mkpointertype(struct typegen *base, enum typequal qual)
 }
 
 struct type *
-mkarraytype(struct typegen *base, enum typequal qual, uint64_t len)
+mkarraytype(struct typegen *base, uint64_t len)
 {
 	struct type *t;
 
 	t = mktype(TYPEARRAY, PROPOBJECT|PROPDERIVED|PROPAGGR);
 	t->base = base;
-	t->qual = qual;
 	t->array.length = len;
 	t->incomplete = !len;
 	if (t->base) {
@@ -122,8 +135,8 @@ typecast(struct typegen *type1, struct typegen *type2)
 {
 	struct type *t1, *t2;
 
-	t1 = typeeval(type1);
-	t2 = typeeval(type2);
+	t1 = typequal(typeeval(type1), NULL);
+	t2 = typequal(typeeval(type2), NULL);
 
 	while (t1->kind == TYPEVAR && !t1->var.isrigid) {
 		if (*t1->var.position == t1) {
@@ -154,10 +167,10 @@ typecast(struct typegen *type1, struct typegen *type2)
 		    && typeequal(t1->base, t2->base);
 	}
 	if (t1->kind == TYPEPOINTER && t2->kind == TYPEPOINTER)
-		return (t1->qual & t2->qual) == t1->qual && typeequal(t1->base, t2->base);
+		return typeequal(t1->base, t2->base);
 	if (t2->kind == TYPEVOID)
 		return true;
-	return false;
+	return typeequal(&t1->gen, &t2->gen);
 }
 
 bool
@@ -178,25 +191,24 @@ typeequal(struct typegen *type1, struct typegen *type2)
 
 	if (t1 == t2)
 		return true;
-	if (t1->kind != t2->kind || t1->size != t2->size)
+	if (t1->kind != t2->kind)
 		return false;
 	if (t1->prop & PROPINT)
 		return t1->basic.issigned == t2->basic.issigned;
-	if (t1->prop & PROPDERIVED && t1->qual != t2->qual)
-		return false;
 
 	switch (t1->kind) {
+	case TYPEQUAL:
+		return t1->qual.qual == t2->qual.qual
+		    && typeequal(t1->base, t2->base);
 	case TYPEPOINTER:
 		return typeequal(t1->base, t2->base);
 	case TYPEARRAY:
 		return t1->array.length == t2->array.length
-			&& typeequal(t1->base, t2->base);
+		    && typeequal(t1->base, t2->base);
 	case TYPESTRUCT:
 	case TYPEUNION:
-		if (t1->qual != t2->qual)
-			return false;
 		for (m1 = t1->structunion.members, m2 = t2->structunion.members; m1 && m2; m1 = m1->next, m2 = m2->next) {
-			if (!(m1->qual == m2->qual && typeequal(m1->type, m2->type)))
+			if (!typeequal(m1->type, m2->type))
 				return false;
 		}
 		if (m1 || m2)
@@ -206,7 +218,7 @@ typeequal(struct typegen *type1, struct typegen *type2)
 		if (t1->func.isvararg != t2->func.isvararg)
 			return false;
 		for (p1 = t1->func.params, p2 = t2->func.params; p1 && p2; p1 = p1->next, p2 = p2->next) {
-			if (p1->qual != p2->qual || !typeequal(p1->type, p2->type))
+			if (!typeequal(p1->type, p2->type))
 				return false;
 		}
 		if (p1 || p2)
@@ -276,8 +288,8 @@ typecommonreal(struct typegen *type1, unsigned w1, struct typegen *type2, unsign
 {
 	struct type *t1, *t2, *tmp;
 
-	t1 = typeeval(type1);
-	t2 = typeeval(type2);
+	t1 = typequal(typeeval(type1), NULL);
+	t2 = typequal(typeeval(type2), NULL);
 
 	if (t1 == &typenoreturn) {
 		assert(t2->prop & PROPREAL);
@@ -314,6 +326,19 @@ typecommonreal(struct typegen *type1, unsigned w1, struct typegen *type2, unsign
 	fatal("internal error; could not find common real type");
 }
 
+struct type *
+typequal(struct type *t, enum typequal *qt)
+{
+	if (qt)
+		*qt = QUALNONE;
+	while (t->kind == TYPEQUAL) {
+		if (qt)
+			*qt |= t->qual.qual;
+		t = typeeval(t->base);
+	}
+	return t;
+}
+
 struct member *
 typemember(struct type *t, const char *name, uint64_t *offset)
 {
@@ -347,10 +372,10 @@ instantiate(struct type *d, struct type *t, struct type **vars)
 
 	switch (t->kind) {
 	case TYPEPOINTER:
-		newt = mkpointertype(t->base, t->qual);
+		newt = mkpointertype(t->base);
 		goto derived;
 	case TYPEARRAY:
-		newt = mkarraytype(t->base, t->qual, t->array.length);
+		newt = mkarraytype(t->base, t->array.length);
 		goto derived;
 	case TYPESTRUCT:
 	case TYPEUNION:
@@ -358,7 +383,6 @@ instantiate(struct type *d, struct type *t, struct type **vars)
 		newt->repr = t->repr;
 		newt->size = 0;
 		newt->align = t->align;
-		newt->qual = t->qual;
 		newt->incomplete = t->incomplete;
 		newt->structunion.members = NULL;
 		m2 = &newt->structunion.members;
@@ -366,7 +390,6 @@ instantiate(struct type *d, struct type *t, struct type **vars)
 			*m2 = xmalloc(sizeof(**m2));
 			(*m2)->name = m->name;
 			(*m2)->type = &instantiate(d, (struct type *) m->type, vars)->gen;
-			(*m2)->qual = m->qual;
 			newt->size = ALIGNUP(newt->size, ((struct type *) (*m2)->type)->align);
 			if (t->kind == TYPESTRUCT) {
 				(*m2)->offset = newt->size;
@@ -387,10 +410,11 @@ instantiate(struct type *d, struct type *t, struct type **vars)
 		return newt;
 	case TYPEFUNC:
 		newt = mktype(TYPEFUNC, t->prop);
+		newt->base = t->base;
 		newt->func.isvararg = t->func.isvararg;
 		p2 = &newt->func.params;
 		for (p = t->func.params; p; p = p->next) {
-			*p2 = mkparam(p->name, &instantiate(d, (struct type *) p->type, vars)->gen, p->qual);
+			*p2 = mkparam(p->name, &instantiate(d, (struct type *) p->type, vars)->gen);
 			p2 = &(*p2)->next;
 		}
 		goto derived;
@@ -402,29 +426,26 @@ instantiate(struct type *d, struct type *t, struct type **vars)
 			newt->apply.vars[i] = &instantiate(d, (struct type *) t->apply.vars[i], vars)->gen;
 		return newt;
 	default:
-		newt = t;
-		if (t->kind == TYPEVAR) {
-			if (t->var.parent == d) {
-				if (!vars[t->var.num]) {
-					newt = mktype(TYPEVAR, t->prop);
-					*newt = *t;
-					newt->var.isrigid = false;
-					vars[t->var.num] = newt;
-					newt->var.position = &vars[t->var.num];
-					return newt;
-				} else {
-					newt = vars[t->var.num];
-				}
+		if (t->kind == TYPEVAR && t->var.parent == d) {
+			if (!vars[t->var.num]) {
+				newt = mktype(TYPEVAR, t->prop);
+				*newt = *t;
+				newt->var.isrigid = false;
+				vars[t->var.num] = newt;
+				newt->var.position = &vars[t->var.num];
+				return newt;
+			} else {
+				return instantiate(d, vars[t->var.num], vars);
 			}
 		}
-		if (newt->prop & PROPDERIVED) {
-			newt = mktype(newt->kind, newt->prop);
-			*newt = *newt;
+		if (t->prop & PROPDERIVED) {
+			newt = mktype(t->kind, t->prop);
+			*newt = *t;
 			goto derived;
 		}
-		return newt;
+		return t;
 	derived:
-		newt->base = &instantiate(d, (struct type *) t->base, vars)->gen;
+		newt->base = &instantiate(d, (struct type *) newt->base, vars)->gen;
 		return newt;
 	}
 }
@@ -454,18 +475,24 @@ typeeval(struct typegen *type)
 			t = *t->var.position;
 		}
 	}
+
+	if (t->kind == TYPEQUAL) {
+		t->size = typeeval(t->base)->size;
+		t->align = typeeval(t->base)->align;
+		t->repr = typeeval(t->base)->repr;
+	}
+
 	return t;
 }
 
 struct param *
-mkparam(char *name, struct typegen *t, enum typequal tq)
+mkparam(char *name, struct typegen *t)
 {
 	struct param *p;
 
 	p = xmalloc(sizeof(*p));
 	p->name = name;
 	p->type = t;
-	p->qual = tq;
 	p->next = NULL;
 
 	return p;

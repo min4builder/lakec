@@ -11,11 +11,6 @@
 
 static struct list tentativedefns = {&tentativedefns, &tentativedefns};
 
-struct qualtype {
-	struct typegen *type;
-	enum typequal qual;
-};
-
 enum storageclass {
 	SCNONE,
 
@@ -45,7 +40,7 @@ struct declbuilder {
 };
 
 struct decl *
-mkdecl(enum declkind k, struct typegen *t, enum typequal tq, enum linkage linkage)
+mkdecl(enum declkind k, struct typegen *t, enum linkage linkage)
 {
 	struct decl *d;
 
@@ -54,7 +49,6 @@ mkdecl(enum declkind k, struct typegen *t, enum typequal tq, enum linkage linkag
 	d->kind = k;
 	d->linkage = linkage;
 	d->type = t;
-	d->qual = tq;
 
 	return d;
 }
@@ -84,54 +78,60 @@ storageclass(enum storageclass *sc)
 }
 
 /* 6.7.3 Type qualifiers */
-static int
-typequal(enum typequal *tq, struct scope *s, int *align)
+static struct type *
+qualifiers(struct scope *s, int *align)
 {
-	struct typegen *t;
+	struct type *t = NULL;
 	uint64_t i;
 	bool isbrack = false;
+	enum typequal tq = QUALNONE;
 
-	switch (tok.kind) {
-	case TMUT:      *tq |= QUALMUT;    break;
-	case THASH:
-		next();
-		if (tok.kind == TLBRACK) {
-			isbrack = true;
+	for (;;) {
+		switch (tok.kind) {
+		case TMUT:      tq |= QUALMUT;    break;
+		case THASH:
 			next();
-		}
-		if (tok.kind != TIDENT)
-			error(&tok.loc, "expecting identifier");
-		if (!strcmp("nocopy", tok.lit))
-			*tq |= QUALNOCOPY;
-		else if (!strcmp("nodrop", tok.lit))
-			*tq |= QUALNODROP;
-		else if (!strcmp("volatile", tok.lit))
-			*tq |= QUALVOLATILE;
-		else if (!strcmp("restrict", tok.lit))
-			*tq |= QUALRESTRICT;
-		else if (isbrack && !strcmp("align", tok.lit)) {
-			if (!align)
-				error(&tok.loc, "alignment specifier not allowed in this declaration");
-			next();
-			t = typename(s, NULL);
-			if (t) {
-				*align = typeeval(t)->align;
-			} else {
-				i = intconstexpr(s, false);
-				if (!i || i & (i - 1) || i > 16)
-					error(&tok.loc, "invalid alignment: %d", i);
-				*align = (int)i;
+			if (tok.kind == TLBRACK) {
+				isbrack = true;
+				next();
 			}
-			expect(TRBRACK, "to close pragma 'align'");
-			return 1;
-		} else
-			error(&tok.loc, "unknown pragma");
-		break;
-	default: return 0;
+			if (tok.kind != TIDENT)
+				error(&tok.loc, "expecting identifier");
+			if (!strcmp("nocopy", tok.lit))
+				tq |= QUALNOCOPY;
+			else if (!strcmp("nodrop", tok.lit))
+				tq |= QUALNODROP;
+			else if (!strcmp("volatile", tok.lit))
+				tq |= QUALVOLATILE;
+			else if (!strcmp("restrict", tok.lit))
+				tq |= QUALRESTRICT;
+			else if (isbrack && !strcmp("align", tok.lit)) {
+				if (!align)
+					error(&tok.loc, "alignment specifier not allowed in this declaration");
+				next();
+				t = (struct type *) typename(s, NULL);
+				if (t) {
+					*align = typeeval((struct typegen *) t)->align;
+				} else {
+					i = intconstexpr(s, false);
+					if (!i || i & (i - 1) || i > 16)
+						error(&tok.loc, "invalid alignment: %d", i);
+					*align = (int)i;
+				}
+				expect(TRBRACK, "to close pragma 'align'");
+				continue;
+			} else
+				error(&tok.loc, "unknown pragma");
+			break;
+		default: goto out;
+		}
+		next();
 	}
-	next();
+out:
+	if (tq)
+		t = mkqualtype(NULL, tq);
 
-	return 1;
+	return t;
 }
 
 /* 6.7.4 Function specifiers */
@@ -185,7 +185,6 @@ tagspec(struct scope *s)
 		t->repr = &i64; // XXX
 		t->size = 0;
 		t->align = 0;
-		t->qual = QUALNONE;
 		t->structunion.members = NULL;
 	}
 	t->incomplete = true;
@@ -222,7 +221,7 @@ tagspec(struct scope *s)
 			invalid:
 				error(&tok.loc, "enumerator '%s' value cannot be represented as 'int'", name);
 			}
-			d = mkdecl(DECLCONST, &targ->typeint->gen, QUALNONE, LINKNONE);
+			d = mkdecl(DECLCONST, &targ->typeint->gen, LINKNONE);
 			d->value = mkintconst(t->repr, i);
 			if (i >= 1ull << 31 && i < 1ull << 63) {
 				large = true;
@@ -244,23 +243,23 @@ tagspec(struct scope *s)
 /* 6.7 Declarations */
 static struct param **parameters(struct scope *, struct param **);
 
-static void
-decltype(struct qualtype *qt, struct scope *s, int *align)
+struct typegen *
+typename(struct scope *s, int *align)
 {
-	struct type **t, *other, *type;
+	struct type *base, **t, *other, *type;
 	struct typegen **vars;
 	struct expr *e;
 	struct param **p;
-	enum typequal *tq;
 	uint64_t i;
 
-	t = (struct type **) &qt->type;
-	tq = &qt->qual;
+	t = &base;
 	if (align)
 		*align = 0;
 	for (;;) {
-		if (typequal(tq, s, align))
+		if ((*t = qualifiers(s, align))) {
+			t = (struct type **) &(*t)->base;
 			continue;
+		}
 		switch (tok.kind) {
 		/* 6.7.2 Type specifiers */
 		case TVOID:
@@ -294,7 +293,6 @@ decltype(struct qualtype *qt, struct scope *s, int *align)
 				expect(TRBRACK, "to close type function application");
 				type = mkapplytype(&(*t)->gen, i, vars);
 				type->apply.loc = tok.loc;
-				*tq |= (*t)->qual;
 				*t = type;
 			}
 			other = (struct type *) typename(s, NULL);
@@ -302,7 +300,6 @@ decltype(struct qualtype *qt, struct scope *s, int *align)
 				type = mkapplytype(&(*t)->gen, 1, xmalloc(sizeof(*vars)));
 				type->apply.vars[0] = (struct typegen *) other;
 				type->apply.loc = tok.loc;
-				*tq |= (*t)->qual;
 				*t = type;
 			}
 			goto done;
@@ -311,14 +308,12 @@ decltype(struct qualtype *qt, struct scope *s, int *align)
 			expect(TLPAREN, "after 'type' expression");
 			e = expr(s);
 			*t = typeeval(e->type);
-			*tq |= e->qual;
 			delexpr(e);
 			expect(TRPAREN, "to close 'type' expression");
 			goto done;
 		case TMUL:
 			next();
-			*t = mkpointertype(NULL, QUALNONE);
-			tq = &(*t)->qual;
+			*t = mkpointertype(NULL);
 			t = (struct type **) &(*t)->base;
 			break;
 		case TLBRACK:
@@ -326,7 +321,6 @@ decltype(struct qualtype *qt, struct scope *s, int *align)
 			if (tok.kind == TTYPE) {
 				next();
 				*t = mktype(TYPEPARAM, PROPDERIVED);
-				(*t)->qual = QUALNONE;
 				(*t)->param.nvars = 0;
 				do {
 					if (tok.kind != TIDENT)
@@ -341,7 +335,6 @@ decltype(struct qualtype *qt, struct scope *s, int *align)
 					next();
 				} while (consume(TCOMMA));
 				expect(TRBRACK, "to close type function declarator");
-				tq = &(*t)->qual;
 				t = (struct type **) &(*t)->base;
 			} else {
 				if (tok.kind == TRBRACK) {
@@ -357,15 +350,13 @@ decltype(struct qualtype *qt, struct scope *s, int *align)
 					delexpr(e);
 					expect(TRBRACK, "after array length");
 				}
-				*t = mkarraytype(NULL, QUALNONE, i);
-				tq = &(*t)->qual;
+				*t = mkarraytype(NULL, i);
 				t = (struct type **) &(*t)->base;
 			}
 			break;
 		case TLPAREN:
 			next();
 			*t = mktype(TYPEFUNC, PROPDERIVED);
-			(*t)->qual = QUALNONE;
 			(*t)->func.isvararg = false;
 			(*t)->func.params = NULL;
 			p = &(*t)->func.params;
@@ -381,23 +372,19 @@ decltype(struct qualtype *qt, struct scope *s, int *align)
 				}
 			}
 			expect(TRPAREN, "to close function declarator");
-			tq = &(*t)->qual;
 			t = (struct type **) &(*t)->base;
 			break;
-		case TLBRACE:
-
 		default:
 			goto done;
 		}
 	}
 done:
-	if (!*t && qt->type)
+	if (!*t && base)
 		error(&tok.loc, "expecting type");
-	if (qt->type && qt->qual && ((struct type *) qt->type)->kind == TYPEARRAY) {
-		qt->type = &mkarraytype(((struct type *) qt->type)->base, ((struct type *) qt->type)->qual | qt->qual, ((struct type *) qt->type)->array.length)->gen;
-		qt->qual = QUALNONE;
+	if (base && base->kind == TYPEARRAY) {
+		base = mkarraytype(base->base, base->array.length);
 	}
-	for (type = (struct type *) qt->type; type && type->prop & PROPDERIVED; type = (struct type *) type->base) {
+	for (type = base; type && type->prop & PROPDERIVED; type = (struct type *) type->base) {
 		if (type->prop & PROPDERIVED && !type->base)
 			error(&tok.loc, "expected type");
 		switch (type->kind) {
@@ -427,9 +414,10 @@ done:
 		case TYPEPOINTER:
 			break;
 		default:
-			return;
+			return (struct typegen *) base;
 		}
 	}
+	return (struct typegen *) base;
 }
 
 static struct declbuilder *
@@ -446,12 +434,14 @@ mkdeclbuilder(char *name, char *asmname, uint64_t width)
 	return db;
 }
 
-static struct qualtype
-declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct list *db, int *align, bool needsc)
+static struct typegen *
+declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, enum typequal *tqp, struct list *db, int *alignp, bool needsc)
 {
-	struct qualtype qt = { NULL, QUALNONE };
+	struct typegen *type;
 	struct declbuilder *cur;
 	enum tokenkind overload = TNONE;
+	enum typequal tq = QUALNONE;
+	int align = 0;
 	char *name, *asmname = 0;
 	int64_t width;
 
@@ -476,11 +466,11 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 	storageclass(sc);
 	funcspec(fs);
 	if (sc && !*sc && (!fs || !*fs) && !asmname && needsc)
-		return (struct qualtype){NULL, QUALNONE};
+		return NULL;
 
 	if (sc && *sc & SCTYPE) {
-		qt.type = &mktype(TYPENONE, PROPNONE)->gen;
-		((struct type *) qt.type)->incomplete = true;
+		type = &mktype(TYPENONE, PROPNONE)->gen;
+		((struct type *) type)->incomplete = true;
 	}
 
 	switch (tok.kind) {
@@ -494,25 +484,24 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 			next();
 			width = -1;
 			if (consume(TCOLON)) {
-				typequal(&qt.qual, s, align);
 				width = intconstexpr(s, true);
 				if (width < 0) {
 					width = -width;
-					qt.type = &targ->typeint->gen;
+					type = &targ->typeint->gen;
 				} else {
-					qt.type = &targ->typeuint->gen;
+					type = &targ->typeuint->gen;
 				}
-				if (qt.type == &targ->typeint->gen && width >= targ->typeint->size * 8)
-					qt.type = &targ->typelong->gen;
-				else if (qt.type == &targ->typeuint->gen && width > targ->typeuint->size * 8)
-					qt.type = &targ->typeulong->gen;
+				if (type == &targ->typeint->gen && width >= targ->typeint->size * 8)
+					type = &targ->typelong->gen;
+				else if (type == &targ->typeuint->gen && width > targ->typeuint->size * 8)
+					type = &targ->typeulong->gen;
 			}
 			if (sc && *sc & SCTYPE)
-				scopeputtag(s, name, qt.type);
+				scopeputtag(s, name, type);
 			cur = mkdeclbuilder(name, asmname, width);
 			listinsert(db->prev, &cur->list);
 			if (width != -1)
-				return qt;
+				return (struct typegen *) type;
 		} while (consume(TCOMMA));
 		break;
 	case TPERIOD:
@@ -550,39 +539,49 @@ declaration(struct scope *s, enum storageclass *sc, enum funcspec *fs, struct li
 		next();
 		break;
 	default:
-		return (struct qualtype){NULL, QUALNONE};
+		return NULL;
 	}
 
-	decltype(&qt, s, align);
+	type = &qualifiers(s, &align)->gen;
+	if (type)
+		tq = ((struct type *) type)->qual.qual;
+	type = typename(s, alignp);
+	if (tq && type)
+		type = &mkqualtype(type, tq)->gen;
+
+	if (tqp)
+		*tqp = tq;
+	if (alignp && !*alignp)
+		*alignp = align;
 
 	if (overload) {
-		if (typeeval(qt.type)->kind != TYPEFUNC)
+		if (typeeval(type)->kind != TYPEFUNC)
 			error(&tok.loc, "overload must be non-generic function");
-		cur = mkdeclbuilder(manglegen(overload, qt.type), 0, -1);
+		cur = mkdeclbuilder(manglegen(overload, type), 0, -1);
 		listinsert(db->prev, &cur->list);
 	}
-	return qt;
+	return type;
 }
 
 static struct param **
 parameters(struct scope *s, struct param **p)
 {
 	struct list *names, db = {&db, &db};
-	struct qualtype t;
+	struct typegen *t;
 	enum storageclass sc;
 	struct declbuilder *decl;
 
-	t = declaration(s, &sc, NULL, &db, NULL, false);
+	t = declaration(s, &sc, NULL, NULL, &db, NULL, false);
 	if (sc && sc != SCREGISTER)
 		error(&tok.loc, "parameter declaration has invalid storage-class specifier");
-	if (!t.type)
+	if (!t)
 		error(&tok.loc, "invalid parameter declaration (no name?)");
 
 	for (names = db.next; names != &db; names = names->next) {
 		decl = listelement(names, struct declbuilder, list);
 		if (decl->width != -1)
 			error(&tok.loc, "invalid bit-field parameter");
-		*p = mkparam(decl->name, t.type, t.qual);
+		*p = mkparam(decl->name, t);
 		p = &(*p)->next;
 	}
 
@@ -590,22 +589,29 @@ parameters(struct scope *s, struct param **p)
 }
 
 static void
-addmember(struct structbuilder *b, struct qualtype mt, char *name, int align, uint64_t width)
+addmember(struct structbuilder *b, struct typegen *mt, char *name, int align, uint64_t width)
 {
 	struct type *t = b->type;
-	struct type *type = typeeval(mt.type);
+	struct type *type = typeeval(mt);
 	struct member *m;
+	enum typequal tq;
 	size_t end;
 
-	// XXX: check incomplete type, except for flexible array member
+	if (t->kind == TYPEQUAL)
+		t = (struct type *) t->base;
+
 	if (type->kind == TYPEFUNC)
 		error(&tok.loc, "struct member '%s' has function type", name);
 	assert(type->align > 0);
 	if (strcmp(name, "_") || width == -1) {
 		m = xmalloc(sizeof(*m));
 		m->type = &type->gen;
-		m->qual = mt.qual;
-		t->qual |= m->qual & (QUALNOCOPY | QUALNODROP);
+		if (type->kind == TYPEQUAL) {
+			type = typequal(type, &tq);
+			if (b->type->kind != TYPEQUAL)
+				b->type = mkqualtype(&b->type->gen, 0);
+			b->type->qual.qual |= tq;
+		}
 		m->name = name;
 		m->next = NULL;
 		*b->last = m;
@@ -664,35 +670,22 @@ addmember(struct structbuilder *b, struct qualtype mt, char *name, int align, ui
 static void
 structdecl(struct scope *s, struct structbuilder *b)
 {
-	struct qualtype qt;
+	struct typegen *t;
 	struct list *names, db = {&db, &db};
 	struct declbuilder *decl;
 	int align;
 
-	qt = declaration(s, NULL, NULL, &db, &align, false);
-	if (!qt.type)
+	t = declaration(s, NULL, NULL, NULL, &db, &align, false);
+	if (!t)
 		error(&tok.loc, "invalid struct member declaration");
 
 	for (names = db.next; names != &db; names = names->next) {
 		decl = listelement(names, struct declbuilder, list);
-		addmember(b, qt, decl->name, align, decl->width);
+		addmember(b, t, decl->name, align, decl->width);
 	}
 
 	if (tok.kind != TRPAREN)
 		expect(TCOMMA, "or ')' after declaration");
-}
-
-/* 6.7.7 Type names */
-struct typegen *
-typename(struct scope *s, enum typequal *tq)
-{
-	struct qualtype t = { NULL, QUALNONE };
-
-	decltype(&t, s, NULL);
-	if (t.type && tq) {
-			*tq |= t.qual;
-	}
-	return t.type;
 }
 
 static enum linkage
@@ -706,7 +699,7 @@ getlinkage(enum declkind kind, enum storageclass sc, struct decl *prior, bool fi
 }
 
 static struct decl *
-declcommon(struct scope *s, enum declkind kind, char *name, char *asmname, struct typegen *t, enum typequal tq, enum storageclass sc, struct decl *prior)
+declcommon(struct scope *s, enum declkind kind, char *name, char *asmname, struct typegen *t, enum storageclass sc, struct decl *prior)
 {
 	struct decl *d;
 	enum linkage linkage;
@@ -722,7 +715,7 @@ declcommon(struct scope *s, enum declkind kind, char *name, char *asmname, struc
 				error(&tok.loc, "%s '%s' redeclared with different linkage", kindstr, name, linkage, prior->linkage);
 			prior->linkage = linkage;
 		}
-		if (!typeequal(t, prior->type) || tq != prior->qual)
+		if (!typeequal(t, prior->type))
 			error(&tok.loc, "%s '%s' redeclared with different type", kindstr, name);
 		if (asmname && strcmp(globalname(prior->value), asmname) != 0)
 			error(&tok.loc, "%s '%s' redeclared with different assembler name", kindstr, name);
@@ -744,7 +737,7 @@ declcommon(struct scope *s, enum declkind kind, char *name, char *asmname, struc
 					error(&tok.loc, "%s '%s' redeclared with different linkage", kindstr, name);
 				prior->linkage = linkage;
 			}
-			if (!typeequal(t, prior->type) || tq != prior->qual)
+			if (!typeequal(t, prior->type))
 				error(&tok.loc, "%s '%s' redeclared with different type", kindstr, name);
 			priorname = globalname(prior->value);
 			if (!asmname)
@@ -754,7 +747,7 @@ declcommon(struct scope *s, enum declkind kind, char *name, char *asmname, struc
 			t = typecomposite(t, prior->type);
 		}
 	}
-	d = mkdecl(kind, t, tq, linkage);
+	d = mkdecl(kind, t, linkage);
 	scopeputdecl(s->parent, name, d);
 	if (kind == DECLFUNC || linkage != LINKNONE || sc & SCSTATIC)
 		d->value = mkglobal(asmname ? asmname : name, linkage == LINKNONE && !asmname);
@@ -788,12 +781,11 @@ staticassert(struct scope *s)
 bool
 decl(struct scope *s, struct func *f, bool instmt)
 {
-	struct qualtype qt;
 	struct list *names, db = {&db, &db};
 	struct typegen *pt, *t;
-	enum typequal tq;
 	enum storageclass sc;
 	enum funcspec fs;
+	enum typequal tq;
 	struct init *init;
 	struct expr *expr;
 	struct declbuilder *decl;
@@ -807,8 +799,8 @@ decl(struct scope *s, struct func *f, bool instmt)
 	if (staticassert(s))
 		return true;
 	s = mkscope(s);
-	qt = declaration(s, &sc, &fs, &db, &align, instmt);
-	if (!(qt.type || db.next != &db)) {
+	t = declaration(s, &sc, &fs, &tq, &db, &align, instmt);
+	if (!(t || db.next != &db)) {
 		s = delscope(s);
 		return false;
 	}
@@ -819,8 +811,7 @@ decl(struct scope *s, struct func *f, bool instmt)
 		if (sc & SCREGISTER)
 			error(&tok.loc, "external declaration must not contain 'register'");
 	}
-	pt = t = qt.type;
-	tq = qt.qual;
+	pt = t;
 	while (pt && typeeval(pt)->kind == TYPEPARAM)
 		pt = typeeval(pt)->base;
 	kind = pt && typeeval(pt)->kind == TYPEFUNC ? DECLFUNC : DECLOBJECT;
@@ -858,9 +849,11 @@ decl(struct scope *s, struct func *f, bool instmt)
 					error(&tok.loc, "expected initializer for type-inferred declaration");
 				expr = condexpr(s);
 				t = expr->type;
+				if (tq)
+					t = &mkqualtype(t, tq)->gen;
 				init = mkinit(0, typeeval(t)->size, (struct bitfield){0}, expr);
 			}
-			d = declcommon(s, kind, name, asmname, t, tq, sc, prior);
+			d = declcommon(s, kind, name, asmname, t, sc, prior);
 			if (d->align < align)
 				d->align = align;
 			if (expr || initialize) {
@@ -890,7 +883,7 @@ decl(struct scope *s, struct func *f, bool instmt)
 				error(&tok.loc, "function '%s' declared with alignment specifier", name);
 			if (f && sc && sc != SCPUBLIC)  /* 6.7.1p7 */
 				error(&tok.loc, "function '%s' with block scope may only have storage class 'pub'", name);
-			d = declcommon(s, kind, name, asmname, t, tq, sc, prior);
+			d = declcommon(s, kind, name, asmname, t, sc, prior);
 			d->inlinedefn = d->linkage == LINKEXTERN && fs & FUNCINLINE && !(sc & SCPUBLIC) && (!prior || prior->inlinedefn);
 			if (tok.kind == TLBRACE) {
 				if (!allowfunc)
@@ -933,7 +926,7 @@ struct decl *stringdecl(struct expr *expr)
 	entry = mapput(strings, &key);
 	d = *entry;
 	if (!d) {
-		d = mkdecl(DECLOBJECT, expr->type, QUALNONE, LINKNONE);
+		d = mkdecl(DECLOBJECT, expr->type, LINKNONE);
 		d->value = mkglobal("string", true);
 		emitdata(d, mkinit(0, typeeval(expr->type)->size, (struct bitfield){0}, expr));
 		*entry = d;

@@ -12,9 +12,8 @@ function $f() {
 	%.6 =l loadl %.3
 	storew 2, %.6
 	%.7 =l loadl %.3
-	%.8 =l copy %.7
-	call $g(l %.8)
-	%.9 =l loadl %.3
-	call $h(l %.9)
+	call $g(l %.7)
+	%.8 =l loadl %.3
+	call $h(l %.8)
 	ret
 }

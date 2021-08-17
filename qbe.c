@@ -30,7 +30,6 @@ struct value {
 		VALTEMP,
 	} kind;
 	struct repr *repr;
-	enum typequal qual;
 	char *debugname;
 	struct value *lval;
 	int uses;
@@ -200,7 +199,6 @@ functemp(struct func *f, struct value *v, struct repr *repr, char *debugname)
 	if (!repr)
 		fatal("temp has no type");
 	v->kind = VALTEMP;
-	v->qual = 0;
 	v->debugname = debugname ? debugname : "<temporary>";
 	v->uses = 0;
 	v->lval = v;
@@ -250,10 +248,12 @@ funcinstn(struct func *f, int op, struct repr *repr, struct value *args[])
 #define funcinst(f, op, repr, ...) funcinstn(f, op, repr, (struct value *[]){__VA_ARGS__})
 
 static struct value *
-funcalloctemp(struct func *f, enum typequal tq, struct type *t, int align, char *debugname)
+funcalloctemp(struct func *f, struct type *t, int align, char *debugname)
 {
 	enum instkind op;
 	struct inst *inst;
+
+	t = typequal(t, NULL);
 
 	assert(!t->incomplete);
 	assert(t->size > 0);
@@ -273,9 +273,6 @@ funcalloctemp(struct func *f, enum typequal tq, struct type *t, int align, char 
 	inst = xmalloc(sizeof(*inst) + sizeof(inst->arg[0]));
 	inst->kind = op;
 	functemp(f, &inst->res, &iptr, debugname);
-	inst->res.qual = tq;
-	if (t->kind == TYPESTRUCT || t->kind == TYPEUNION)
-		inst->res.qual |= t->qual;
 	inst->arg[0] = mkintconst(&i64, t->size);
 	arrayaddptr(&f->start->insts, inst);
 	return &inst->res;
@@ -284,7 +281,7 @@ funcalloctemp(struct func *f, enum typequal tq, struct type *t, int align, char 
 static void
 funcalloc(struct func *f, struct decl *d, char *name)
 {
-	d->value = funcalloctemp(f, d->qual, typeeval(d->type), d->align, name);
+	d->value = funcalloctemp(f, typeeval(d->type), d->align, name);
 }
 
 static struct value *
@@ -298,24 +295,15 @@ funcbits(struct func *f, struct type *t, struct value *v, struct bitfield b)
 }
 
 static struct value *
-funcstore(struct func *f, struct type *t, enum typequal tq, struct lvalue lval, struct value *v)
+funcstore(struct func *f, struct type *t, struct lvalue lval, struct value *v)
 {
 	struct value *r;
 	enum instkind loadop, storeop;
 	enum typeprop tp;
 	unsigned long long mask;
 
-	if (t->kind == TYPESTRUCT || t->kind == TYPEUNION)
-		tq |= t->qual;
-	if (tq & QUALVOLATILE)
-		error(&tok.loc, "volatile store is not yet supported");
-	if (!(tq & QUALMUT))
-		error(&tok.loc, "cannot store to immutable object '%s'", v->debugname);
-	if (v->lval && tq & v->lval->qual & (QUALNOCOPY | QUALNODROP)) {
-		v->lval->uses++;
-		if (v->lval->qual & QUALNOCOPY && v->lval->uses > 1)
-			error(&tok.loc, "nocopy object '%s' used more than once", v->lval->debugname);
-	}
+	t = typequal(t, NULL);
+
 	tp = t->prop;
 	assert(!lval.bits.before && !lval.bits.after || tp & PROPINT);
 	r = v;
@@ -382,6 +370,8 @@ funcload(struct func *f, struct type *t, struct lvalue lval)
 	struct value *v;
 	enum instkind op;
 
+	t = typequal(t, NULL);
+
 	switch (t->kind) {
 	case TYPEPOINTER:
 		op = ILOADL;
@@ -407,8 +397,6 @@ funcload(struct func *f, struct type *t, struct lvalue lval)
 	}
 	v = funcinst(f, op, t->repr, lval.addr);
 	v->lval = lval.addr;
-	if (lval.addr->qual & QUALNOCOPY && v->lval->uses > 0)
-		error(&tok.loc, "nocopy object '%s' used after being moved", v->lval->debugname);
 	return funcbits(f, t, v, lval.bits);
 }
 
@@ -493,15 +481,13 @@ extend(struct func *f, struct type *t, struct value *v)
 }
 
 static struct value *
-convert(struct func *f, enum typequal dtq, struct type *dst, enum typequal stq, struct type *src, struct value *l)
+convert(struct func *f, struct type *dst, struct type *src, struct value *l)
 {
 	enum instkind op;
 	struct value *r = NULL;
 
-	if (src->kind == TYPESTRUCT || src->kind == TYPEUNION)
-		stq |= src->qual;
-	if (dst->kind == TYPESTRUCT || dst->kind == TYPEUNION)
-		dtq |= dst->qual;
+	src = typequal(src, NULL);
+	dst = typequal(dst, NULL);
 
 	if (src->kind == TYPEPOINTER || src->kind == TYPEARRAY)
 		src = targ->typeulong;
@@ -551,8 +537,6 @@ convert(struct func *f, enum typequal dtq, struct type *dst, enum typequal stq, 
 	}
 
 	r = funcinst(f, op, dst->repr, l, r);
-	if (dtq & stq & QUALNOCOPY)
-		r->lval = l->lval;
 	return r;
 }
 
@@ -577,24 +561,24 @@ mkfunc(struct decl *decl, char *name, struct type *t, struct scope *s)
 	for (p = t->func.params; p; p = p->next) {
 		pt = typeeval(p->type);
 		if (pt->kind == TYPEARRAY || pt->kind == TYPEFUNC)
-			pt = mkpointertype(&pt->gen, p->qual);
+			pt = mkpointertype(&pt->gen);
 		emittype(pt);
 		p->value = xmalloc(sizeof(*p->value));
 		functemp(f, p->value, pt->repr, p->name);
-		d = mkdecl(DECLOBJECT, p->type, p->qual, LINKNONE);
+		d = mkdecl(DECLOBJECT, p->type, LINKNONE);
 		if (pt->repr->abi.id) {
 			d->value = xmalloc(sizeof(*d->value));
 			*d->value = *p->value;
 			d->value->repr = &iptr;
 		} else {
 			funcinit(f, d, NULL, p->name);
-			funcstore(f, pt, QUALMUT, (struct lvalue){d->value}, p->value);
+			funcstore(f, pt, (struct lvalue){d->value}, p->value);
 		}
 		scopeputdecl(s, p->name, d);
 	}
 
-	t = mkarraytype(&typechar.gen, QUALNONE, strlen(name) + 1);
-	d = mkdecl(DECLOBJECT, &t->gen, QUALNONE, LINKNONE);
+	t = mkarraytype(&typechar.gen, strlen(name) + 1);
+	d = mkdecl(DECLOBJECT, &t->gen, LINKNONE);
 	d->value = mkglobal("__func__", true);
 	scopeputdecl(s, "__func__", d);
 	f->namedecl = d;
@@ -703,7 +687,7 @@ funclval(struct func *f, struct expr *e)
 		lval.addr = d->value;
 		break;
 	case EXPRCOMPOUND:
-		d = mkdecl(DECLOBJECT, e->type, e->qual, LINKNONE);
+		d = mkdecl(DECLOBJECT, e->type, LINKNONE);
 		funcinit(f, d, e->compound.init, 0);
 		lval.addr = d->value;
 		break;
@@ -755,17 +739,18 @@ funcexpr(struct func *f, struct expr *e)
 		return funcload(f, typeeval(e->type), lval);
 	case EXPRINCDEC:
 		lval = funclval(f, e->base);
-		l = funcload(f, typeeval(e->base->type), lval);
-		if (typeeval(e->type)->kind == TYPEPOINTER)
-			r = mkintconst(typeeval(e->type)->repr, typeeval(typeeval(e->type)->base)->size);
-		else if (typeeval(e->type)->prop & PROPINT)
-			r = mkintconst(typeeval(e->type)->repr, 1);
-		else if (typeeval(e->type)->prop & PROPFLOAT)
-			r = mkfltconst(typeeval(e->type)->repr, 1);
+		t = typequal(typeeval(e->base->type), NULL);
+		l = funcload(f, t, lval);
+		if (t->kind == TYPEPOINTER)
+			r = mkintconst(t->repr, typeeval(t->base)->size);
+		else if (t->prop & PROPINT)
+			r = mkintconst(t->repr, 1);
+		else if (t->prop & PROPFLOAT)
+			r = mkfltconst(t->repr, 1);
 		else
 			fatal("not a scalar");
-		v = funcinst(f, e->op == TINC ? IADD : ISUB, typeeval(e->type)->repr, l, r);
-		v = funcstore(f, typeeval(e->type), e->qual, lval, v);
+		v = funcinst(f, e->op == TINC ? IADD : ISUB, t->repr, l, r);
+		v = funcstore(f, typeeval(e->base->type), lval, v);
 		return e->incdec.post ? l : v;
 	case EXPRCALL:
 		argvals = xreallocarray(NULL, e->call.nargs + 3, sizeof(argvals[0]));
@@ -774,14 +759,9 @@ funcexpr(struct func *f, struct expr *e)
 		for (argval = &argvals[1], arg = e->call.args; arg; ++argval, arg = arg->next) {
 			t = typeeval(arg->type);
 			if (t->kind == TYPEARRAY || t->kind == TYPEFUNC)
-				t = mkpointertype(&t->gen, arg->qual);
+				t = mkpointertype(&t->gen);
 			emittype(t);
 			v = funcexpr(f, arg);
-			if (v->lval && v->lval->qual & (QUALNOCOPY | QUALNODROP)) {
-				v->lval->uses++;
-				if (v->lval->qual & QUALNOCOPY && v->lval->uses > 1)
-					error(&tok.loc, "nocopy object '%s' used more than once", v->lval->debugname);
-			}
 			*argval = v;
 		}
 		*argval = NULL;
@@ -802,7 +782,7 @@ funcexpr(struct func *f, struct expr *e)
 		break;
 	case EXPRCAST:
 		l = funcexpr(f, e->base);
-		return convert(f, e->qual, typeeval(e->type), e->base->qual, typeeval(e->base->type), l);
+		return convert(f, typeeval(e->type), typeeval(e->base->type), l);
 	case EXPRBINARY:
 		if (e->op == TLOR || e->op == TLAND) {
 			label[0] = mkblock("logic_right");
@@ -937,13 +917,13 @@ funcexpr(struct func *f, struct expr *e)
 		r = funcexpr(f, e->assign.r);
 		if (e->assign.l->kind == EXPRTEMP) {
 			if (typeeval(e->assign.l->type)->kind == TYPESTRUCT || typeeval(e->assign.l->type)->kind == TYPEUNION) {
-				lval = (struct lvalue){funcalloctemp(f, QUALMUT, typeeval(e->assign.l->type), 0, 0)};
-				r = funcstore(f, typeeval(e->assign.l->type), QUALMUT, lval, r);
+				lval = (struct lvalue){funcalloctemp(f, typeeval(e->assign.l->type), 0, 0)};
+				r = funcstore(f, typeeval(e->assign.l->type), lval, r);
 			}
 			e->assign.l->temp = r;
 		} else {
 			lval = funclval(f, e->assign.l);
-			r = funcstore(f, typeeval(e->assign.l->type), e->assign.l->qual, lval, r);
+			r = funcstore(f, typeeval(e->assign.l->type), lval, r);
 		}
 		return r;
 	case EXPRCOMMA:
@@ -1027,7 +1007,7 @@ funcinit(struct func *func, struct decl *d, struct init *init, char *name)
 		if (init->expr->kind == EXPRSTRING) {
 			for (i = 0; i < init->expr->string.size && i < init->end - init->start; ++i) {
 				dst.addr = funcinst(func, IADD, &iptr, d->value, mkintconst(&iptr, init->start + i));
-				funcstore(func, &typechar, init->expr->qual | QUALMUT, dst, mkintconst(&i8, init->expr->string.data[i]));
+				funcstore(func, &typechar, dst, mkintconst(&i8, init->expr->string.data[i]));
 			}
 			offset = init->start + i;
 		} else {
@@ -1035,7 +1015,7 @@ funcinit(struct func *func, struct decl *d, struct init *init, char *name)
 				zero(func, d->value, typeeval(d->type)->align, offset, init->end);
 			dst.addr = funcinst(func, IADD, &iptr, d->value, mkintconst(&iptr, init->start));
 			src = funcexpr(func, init->expr);
-			funcstore(func, typeeval(init->expr->type), init->expr->qual | QUALMUT, dst, src);
+			funcstore(func, typeeval(init->expr->type), dst, src);
 			offset = init->end;
 		}
 		if (max < offset)
@@ -1127,7 +1107,7 @@ static void
 emitrepr(struct repr *r, bool abi, bool ext)
 {
 	if (!r)
-		fatal("type has no QBE representation");
+		error(&tok.loc, "type has no QBE representation");
 	if (abi && r->abi.id) {
 		putchar(':');
 		emitname(&r->abi);
@@ -1198,8 +1178,6 @@ emitinst(struct inst *inst)
 	putchar('\t');
 	assert(inst->kind < LEN(instdesc));
 	if (instdesc[inst->kind].ret && inst->res.kind) {
-		if (inst->res.lval && inst->res.lval->qual & QUALNODROP && inst->res.lval->uses == 0)
-			error(&tok.loc, "nodrop value '%s' dropped", inst->res.lval->debugname);
 		emitvalue(&inst->res);
 		fputs(" =", stdout);
 		emitrepr(inst->res.repr, inst->kind == ICALL || inst->kind == IVACALL, false);

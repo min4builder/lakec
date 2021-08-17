@@ -3,6 +3,6 @@ f[type a](x *a) *a {
 }
 
 g() void {
-	auto x mut *int = 0;
+	auto x mut *int;
 	x = f[int](x);
 }

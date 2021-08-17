@@ -1,7 +1,6 @@
 type a struct (
 	a, b #nodrop int
 );
-f(x #nodrop a) void {
-	auto y #nodrop a;
-	0;
+f(x a) void {
+	auto y a;
 }

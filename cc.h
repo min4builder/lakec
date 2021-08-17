@@ -135,6 +135,7 @@ enum typekind {
 	TYPEFLOAT,
 	TYPEDOUBLE,
 	TYPELDOUBLE,
+	TYPEQUAL,
 	TYPEPOINTER,
 	TYPEARRAY,
 	TYPEFUNC,
@@ -162,7 +163,6 @@ enum typeprop {
 struct param {
 	char *name;
 	struct typegen *type;
-	enum typequal qual;
 	struct value *value;
 	struct param *next;
 };
@@ -175,7 +175,6 @@ struct bitfield {
 struct member {
 	char *name;
 	struct typegen *type;
-	enum typequal qual;
 	uint64_t offset;
 	struct bitfield bits;
 	struct member *next;
@@ -194,13 +193,14 @@ struct type {
 		struct typegen *base;
 		struct list link;  /* used only during construction of type */
 	};
-	/* qualifiers of the base type */
-	enum typequal qual;
 	_Bool incomplete;
 	union {
 		struct {
 			_Bool issigned, iscomplex;
 		} basic;
+		struct {
+			enum typequal qual;
+		} qual;
 		struct {
 			uint64_t length;
 		} array;
@@ -258,7 +258,6 @@ struct decl {
 	enum declkind kind;
 	enum linkage linkage;
 	struct typegen *type;
-	enum typequal qual;
 	struct value *value;
 	_Bool defined;
 
@@ -315,10 +314,7 @@ struct expr {
 	enum exprkind kind;
 	/* whether this expression is an lvalue */
 	_Bool lvalue;
-	/* the unqualified type of the expression */
 	struct typegen *type;
-	/* the type qualifiers of the object this expression refers to (ignored for non-lvalues) */
-	enum typequal qual;
 	enum tokenkind op;
 	struct expr *base;
 	struct expr *next;
@@ -408,18 +404,20 @@ _Bool consume(int);
 
 struct type *mktype(enum typekind, enum typeprop);
 struct type *mkapplytype(struct typegen *, int, struct typegen **);
-struct type *mkpointertype(struct typegen *, enum typequal);
-struct type *mkarraytype(struct typegen *, enum typequal, uint64_t);
+struct type *mkqualtype(struct typegen *, enum typequal);
+struct type *mkpointertype(struct typegen *);
+struct type *mkarraytype(struct typegen *, uint64_t);
 
 _Bool typecast(struct typegen *, struct typegen *);
 _Bool typeequal(struct typegen *, struct typegen *);
 struct typegen *typecomposite(struct typegen *, struct typegen *);
 struct typegen *typecommonreal(struct typegen *, unsigned, struct typegen *, unsigned);
 struct typegen *typepromote(struct typegen *, unsigned);
+struct type *typequal(struct type *, enum typequal *);
 struct member *typemember(struct type *, const char *, uint64_t *);
 struct type *typeeval(struct typegen *);
 
-struct param *mkparam(char *, struct typegen *, enum typequal);
+struct param *mkparam(char *, struct typegen *);
 
 extern struct type typevoid;
 extern struct type typenoreturn;
@@ -430,7 +428,7 @@ extern struct type typei16, typeu16;
 extern struct type typei32, typeu32;
 extern struct type typei64, typeu64;
 extern struct type typef32, typef64;
-extern struct type typevalist, typevalistptr, typevalistmutptr;
+extern struct type typevalist, typevalistptr, typevalistptrmut;
 
 /* targ */
 
@@ -447,9 +445,9 @@ void targinit(const char *);
 
 /* decl */
 
-struct decl *mkdecl(enum declkind, struct typegen *, enum typequal, enum linkage);
+struct decl *mkdecl(enum declkind, struct typegen *, enum linkage);
 _Bool decl(struct scope *, struct func *, _Bool);
-struct typegen *typename(struct scope *, enum typequal *);
+struct typegen *typename(struct scope *, int *);
 
 struct decl *stringdecl(struct expr *);
 
@@ -483,8 +481,8 @@ struct expr *constexpr(struct scope *);
 uint64_t intconstexpr(struct scope *, _Bool);
 void delexpr(struct expr *);
 
-struct expr *mkassignexpr(struct expr *, struct expr *);
-struct expr *exprconvert(struct expr *, enum typequal, struct typegen *);
+struct expr *mkassignexpr(struct expr *, struct expr *, _Bool);
+struct expr *exprconvert(struct expr *, struct typegen *);
 struct expr *exprtemp(struct expr **, struct expr *);
 struct expr *exprpromote(struct expr *);
 

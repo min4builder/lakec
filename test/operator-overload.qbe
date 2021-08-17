@@ -55,7 +55,6 @@ function $f() {
 	%.4 =l alloc4 8
 	%.7 =l alloc4 8
 	%.16 =l alloc4 8
-	%.18 =l alloc4 8
 @body.6
 	%.2 =l add %.1, 0
 	storew 6, %.2
@@ -76,22 +75,14 @@ function $f() {
 	%.14 =l add %.11, 4
 	%.15 =l add %.12, 4
 	%.17 =l add %.16, 0
-	%.19 =l loaduw %.7
-	storew %.19, %.18
-	%.20 =l add %.7, 4
-	%.21 =l add %.18, 4
-	%.22 =l loaduw %.20
-	storew %.22, %.21
-	%.23 =l add %.20, 4
-	%.24 =l add %.21, 4
 	call $_ZppP4_Sii(l %.7)
-	%.25 =l loaduw %.7
-	storew %.25, %.17
-	%.26 =l add %.7, 4
-	%.27 =l add %.17, 4
-	%.28 =l loaduw %.26
-	storew %.28, %.27
-	%.29 =l add %.26, 4
-	%.30 =l add %.27, 4
+	%.18 =l loaduw %.7
+	storew %.18, %.17
+	%.19 =l add %.7, 4
+	%.20 =l add %.17, 4
+	%.21 =l loaduw %.19
+	storew %.21, %.20
+	%.22 =l add %.19, 4
+	%.23 =l add %.20, 4
 	ret
 }

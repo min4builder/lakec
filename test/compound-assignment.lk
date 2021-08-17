@@ -1,5 +1,5 @@
 f() void {
-	auto x [1]int = (0);
-	auto p mut *mut [1]int = &x;
+	auto x mut [1]int = (0);
+	auto p *mut [1]int = &x;
 	p[0] += 1;
 }

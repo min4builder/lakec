@@ -91,15 +91,22 @@ mangletype(struct type **tstack, int *top, struct type *t, char *w, char *max)
 	case TYPELDOUBLE:
 		*w++ = 'e';
 		break;
+	case TYPEQUAL:
+		if (max-w < 4)
+			return w;
+		if (t->qual.qual & QUALVOLATILE)
+			*w++ = 'V';
+		if (!(t->qual.qual & QUALMUT))
+			*w++ = 'K';
+		w = mangletype(tstack, top, typeeval(t->base), w, max);
+		break;
 	case TYPEARRAY:
+		w = mangletype(tstack, top, typeeval(t->base), w, max);
+		break;
 	case TYPEPOINTER:
 		if (max-w < 3)
 			return w;
 		*w++ = 'P';
-		if (t->qual & QUALVOLATILE)
-			*w++ = 'V';
-		if (!(t->qual & QUALMUT))
-			*w++ = 'K';
 		w = mangletype(tstack, top, typeeval(t->base), w, max);
 		tstack[(*top)++] = t;
 		break;
@@ -142,7 +149,7 @@ mangleuop(enum tokenkind t, struct typegen *t1)
 	char *w = n;
 
 	w += snprintf(w, sizeof(n), "_Z%s", optable[t]);
-	w = mangletype(tstack, &top, typeeval(t1), w, n + sizeof(n) - 1);
+	w = mangletype(tstack, &top, typequal(typeeval(t1), NULL), w, n + sizeof(n) - 1);
 	*w = '\0';
 	return n;
 }
@@ -156,8 +163,8 @@ manglebop(enum tokenkind t, struct typegen *t1, struct typegen *t2)
 	char *w = n;
 
 	w += snprintf(w, sizeof(n), "_Z%s", optable[t]);
-	w = mangletype(tstack, &top, typeeval(t1), w, n + sizeof(n) - 1);
-	w = mangletype(tstack, &top, typeeval(t2), w, n + sizeof(n) - 1);
+	w = mangletype(tstack, &top, typequal(typeeval(t1), NULL), w, n + sizeof(n) - 1);
+	w = mangletype(tstack, &top, typequal(typeeval(t2), NULL), w, n + sizeof(n) - 1);
 	*w = '\0';
 	return n;
 }
@@ -176,7 +183,7 @@ manglegen(enum tokenkind t, struct typegen *f)
 	for (p = typeeval(f)->func.params; p; p = p->next) {
 		if (len > sizeof(buf))
 			break;
-		len += mangletype(tstack, &top, typeeval(p->type), buf + len, buf + sizeof(buf)) - (buf + len);
+		len += mangletype(tstack, &top, typequal(typeeval(p->type), NULL), buf + len, buf + sizeof(buf)) - (buf + len);
 	}
 	n = malloc(len + 1);
 	memcpy(n, buf, len);

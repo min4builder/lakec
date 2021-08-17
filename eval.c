@@ -102,7 +102,7 @@ eval(struct expr *expr, enum evalkind kind)
 	case EXPRCOMPOUND:
 		if (kind != EVALINIT)
 			break;
-		d = mkdecl(DECLOBJECT, expr->type, expr->qual, LINKNONE);
+		d = mkdecl(DECLOBJECT, expr->type, LINKNONE);
 		d->value = mkglobal(NULL, true);
 		emitdata(d, expr->compound.init);
 		expr->kind = EXPRIDENT;

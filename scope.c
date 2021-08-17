@@ -30,10 +30,10 @@ scopeinit(void)
 	for (b = builtins; b < builtins + LEN(builtins); ++b)
 		scopeputdecl(&filescope, b->name, &b->decl);
 
-	d = mkdecl(DECLCONST, &typebool.gen, QUALNONE, LINKNONE);
+	d = mkdecl(DECLCONST, &typebool.gen, LINKNONE);
 	d->value = mkintconst(typebool.repr, 0);
 	scopeputdecl(&filescope, "false", d);
-	d = mkdecl(DECLCONST, &typebool.gen, QUALNONE, LINKNONE);
+	d = mkdecl(DECLCONST, &typebool.gen, LINKNONE);
 	d->value = mkintconst(typebool.repr, 1);
 	scopeputdecl(&filescope, "true", d);
 
